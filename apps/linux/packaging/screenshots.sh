@@ -4,7 +4,7 @@
 #
 # usage: xvfb-run -a -s "-screen 0 1240x800x24" packaging/screenshots.sh <binary> <out-dir>
 set -u
-BIN=${1:-target/release/lanternpost}
+BIN=${1:-target/release/mailherd}
 OUT=${2:-screenshots}
 mkdir -p "$OUT"
 export LIBGL_ALWAYS_SOFTWARE=1

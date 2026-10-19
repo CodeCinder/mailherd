@@ -1,14 +1,13 @@
 [package]
-name = "lp-thread"
-description = "Threading, cross-account merging and People grouping"
+name = "mh-model"
+description = "Shared data types for the MailHerd core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
 [dependencies]
-lp-model.workspace = true
-regex.workspace = true
+serde.workspace = true
 
 [lints]
 workspace = true

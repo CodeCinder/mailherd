@@ -1,10 +1,10 @@
-# LanternPost
+# MailHerd
 
 A native, cross-platform email client that makes email feel like messaging. It works with iCloud, Gmail and Microsoft 365.
 
 - Conversations shown as chat bubbles, with quoted history and signatures tucked away
 - A combined inbox, plus a People view that groups everything by who you're talking to
-- Normal, standards-compliant email going out, so recipients never need LanternPost
+- Normal, standards-compliant email going out, so recipients never need MailHerd
 - Private by default: remote images blocked, trackers stripped, local data encrypted
 
 **Status:** early development, building towards v0.1 (Linux). The Linux app runs on demo data; real accounts are not connected yet.

@@ -1,12 +1,13 @@
 [package]
-name = "lp-chat"
-description = "Quote and signature stripping for chat-style conversation views"
+name = "mh-thread"
+description = "Threading, cross-account merging and People grouping"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
 [dependencies]
+mh-model.workspace = true
 regex.workspace = true
 
 [lints]

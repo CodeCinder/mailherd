@@ -14,7 +14,7 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::LazyLock;
 
-use lp_model::{AccountId, Address, MessageHeader, Timestamp};
+use mh_model::{AccountId, Address, MessageHeader, Timestamp};
 use regex::Regex;
 
 const SUBJECT_WINDOW_SECS: Timestamp = 60 * 24 * 60 * 60;
@@ -222,7 +222,7 @@ pub fn people_key<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lp_model::Flags;
+    use mh_model::Flags;
 
     fn msg(
         account: &str,

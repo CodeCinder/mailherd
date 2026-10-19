@@ -10,12 +10,12 @@ publish = false
 rust-version = "1.85"
 
 [workspace.dependencies]
-lp-model = { path = "crates/lp-model" }
-lp-mime = { path = "crates/lp-mime" }
-lp-chat = { path = "crates/lp-chat" }
-lp-thread = { path = "crates/lp-thread" }
-lp-store = { path = "crates/lp-store" }
-lp-app = { path = "crates/lp-app" }
+mh-model = { path = "crates/mh-model" }
+mh-mime = { path = "crates/mh-mime" }
+mh-chat = { path = "crates/mh-chat" }
+mh-thread = { path = "crates/mh-thread" }
+mh-store = { path = "crates/mh-store" }
+mh-app = { path = "crates/mh-app" }
 
 ammonia = "4.2"
 html2text = "0.17"

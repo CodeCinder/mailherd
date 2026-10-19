@@ -432,68 +432,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
-name = "lp-app"
-version = "0.1.0"
-dependencies = [
- "lp-chat",
- "lp-mime",
- "lp-model",
- "lp-store",
- "lp-thread",
- "serde",
- "serde_json",
- "thiserror",
- "time",
- "uuid",
-]
-
-[[package]]
-name = "lp-chat"
-version = "0.1.0"
-dependencies = [
- "regex",
-]
-
-[[package]]
-name = "lp-mime"
-version = "0.1.0"
-dependencies = [
- "ammonia",
- "html2text",
- "lp-model",
- "mail-builder",
- "mail-parser",
- "thiserror",
- "url",
-]
-
-[[package]]
-name = "lp-model"
-version = "0.1.0"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "lp-store"
-version = "0.1.0"
-dependencies = [
- "lp-model",
- "rusqlite",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "lp-thread"
-version = "0.1.0"
-dependencies = [
- "lp-model",
- "regex",
-]
-
-[[package]]
 name = "mail-builder"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -533,6 +471,68 @@ name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
+
+[[package]]
+name = "mh-app"
+version = "0.1.0"
+dependencies = [
+ "mh-chat",
+ "mh-mime",
+ "mh-model",
+ "mh-store",
+ "mh-thread",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time",
+ "uuid",
+]
+
+[[package]]
+name = "mh-chat"
+version = "0.1.0"
+dependencies = [
+ "regex",
+]
+
+[[package]]
+name = "mh-mime"
+version = "0.1.0"
+dependencies = [
+ "ammonia",
+ "html2text",
+ "mail-builder",
+ "mail-parser",
+ "mh-model",
+ "thiserror",
+ "url",
+]
+
+[[package]]
+name = "mh-model"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "mh-store"
+version = "0.1.0"
+dependencies = [
+ "mh-model",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "mh-thread"
+version = "0.1.0"
+dependencies = [
+ "mh-model",
+ "regex",
+]
 
 [[package]]
 name = "new_debug_unreachable"

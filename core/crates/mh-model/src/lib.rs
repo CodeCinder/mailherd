@@ -1,4 +1,4 @@
-//! Shared data types used across the LanternPost core.
+//! Shared data types used across the MailHerd core.
 //!
 //! These types are deliberately plain (strings, integers, vectors) so they
 //! cross the FFI boundary to each native UI without surprises.

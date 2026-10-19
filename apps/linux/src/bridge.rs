@@ -97,8 +97,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
-use lp_app::Core;
-use lp_app::view::Mailbox;
+use mh_app::Core;
+use mh_app::view::Mailbox;
 
 fn now() -> i64 {
     SystemTime::now()
@@ -123,7 +123,7 @@ pub struct AppControllerRust {
 impl Default for AppControllerRust {
     fn default() -> Self {
         // v0.1 starts in demo mode until account sign-in lands.
-        let (core, error) = match lp_app::demo::demo_core(Box::new(now), 0) {
+        let (core, error) = match mh_app::demo::demo_core(Box::new(now), 0) {
             Ok(core) => (Some(core), String::new()),
             Err(e) => (None, e.to_string()),
         };
@@ -151,7 +151,7 @@ impl qobject::AppController {
     }
 
     /// Run an action on the core, record any error, and refresh the views.
-    fn act(mut self: Pin<&mut Self>, f: impl FnOnce(&mut Core) -> lp_app::Result<()>) {
+    fn act(mut self: Pin<&mut Self>, f: impl FnOnce(&mut Core) -> mh_app::Result<()>) {
         let result = match self.as_mut().rust_mut().core.as_mut() {
             Some(core) => f(core),
             None => return,

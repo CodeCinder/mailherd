@@ -1,4 +1,4 @@
-//! The LanternPost app core: state, view models and actions.
+//! The MailHerd app core: state, view models and actions.
 //!
 //! Every UI talks only to [`Core`]. It asks for view models (sidebar, thread
 //! list, People list, conversation) and sends actions (open, pin, done,
@@ -6,16 +6,16 @@
 
 use std::collections::{HashMap, HashSet};
 
-use lp_chat::{ReplyParts, learn_signature, snippet, split_reply, strip_learned_signature};
-use lp_mime::{
+use mh_chat::{ReplyParts, learn_signature, snippet, split_reply, strip_learned_signature};
+use mh_mime::{
     OutgoingMessage, QuotedOriginal, build_message, html_to_text, parse_message, reply_subject,
 };
-use lp_model::{
+use mh_model::{
     Account, AccountId, Address, Flags, MessageHeader, MessageId, ProviderKind, ThreadState,
     Timestamp, normalize_email,
 };
-use lp_store::{FolderRole, NewMessage, Store, StoreError};
-use lp_thread::{Thread, build_threads, people_key};
+use mh_store::{FolderRole, NewMessage, Store, StoreError};
+use mh_thread::{Thread, build_threads, people_key};
 use serde::{Deserialize, Serialize};
 
 pub mod demo;
@@ -593,7 +593,7 @@ impl Core {
         clock: &Clock,
     ) -> Vec<ConversationItem> {
         // Split every message first so signatures can be learned per sender.
-        let mut prepared: Vec<(&MessageHeader, &lp_thread::ThreadMessage, ReplyParts, bool)> =
+        let mut prepared: Vec<(&MessageHeader, &mh_thread::ThreadMessage, ReplyParts, bool)> =
             Vec::new();
         for (thread, pos) in entries {
             let tm = &thread.messages[*pos];
@@ -636,7 +636,7 @@ impl Core {
                 last_day = Some(day);
                 last_sender = None;
             }
-            let normalized_subject = lp_thread::normalize_subject(&h.subject);
+            let normalized_subject = mh_thread::normalize_subject(&h.subject);
             let subject_change = match &last_subject {
                 Some(prev) if *prev != normalized_subject => Some(h.subject.clone()),
                 _ => None,
@@ -1056,11 +1056,7 @@ impl Core {
             references.drain(..references.len() - MAX_REFERENCES);
         }
         let now = self.now();
-        let domain = account
-            .email
-            .split('@')
-            .nth(1)
-            .unwrap_or("lanternpost.local");
+        let domain = account.email.split('@').nth(1).unwrap_or("mailherd.local");
         let outgoing = OutgoingMessage {
             message_id: format!("{}@{domain}", uuid::Uuid::new_v4()),
             from: Address::new(Some(&account.display_name), &account.email),

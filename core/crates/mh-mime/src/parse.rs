@@ -1,7 +1,7 @@
 //! Parsing raw RFC 5322 messages into plain data.
 
-use lp_model::{Address, AttachmentInfo, Body, Timestamp, normalize_message_id};
 use mail_parser::{HeaderValue, MessageParser, MimeHeaders};
+use mh_model::{Address, AttachmentInfo, Body, Timestamp, normalize_message_id};
 
 use crate::sanitize::{SanitizeOptions, sanitize_html};
 use crate::text::html_to_text;

@@ -1,5 +1,5 @@
 [package]
-name = "lp-mime"
+name = "mh-mime"
 description = "MIME parsing, HTML sanitising and tracker removal"
 version.workspace = true
 edition.workspace = true
@@ -9,7 +9,7 @@ publish.workspace = true
 [dependencies]
 ammonia.workspace = true
 html2text.workspace = true
-lp-model.workspace = true
+mh-model.workspace = true
 mail-builder.workspace = true
 mail-parser.workspace = true
 thiserror.workspace = true

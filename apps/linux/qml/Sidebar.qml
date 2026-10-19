@@ -30,7 +30,7 @@ Rectangle {
         spacing: 2
 
         Text {
-            text: qsTr("LanternPost")
+            text: qsTr("MailHerd")
             color: sidebar.theme.text
             font.pointSize: sidebar.theme.title
             font.bold: true

@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import LanternPost
+import MailHerd
 
 ApplicationWindow {
     id: window
@@ -11,7 +11,7 @@ ApplicationWindow {
     minimumWidth: 900
     minimumHeight: 540
     visible: true
-    title: conversation ? qsTr("%1 — LanternPost").arg(conversation.title) : qsTr("LanternPost")
+    title: conversation ? qsTr("%1 — MailHerd").arg(conversation.title) : qsTr("MailHerd")
     color: theme.window
 
     Theme { id: theme }

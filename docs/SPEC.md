@@ -1,4 +1,4 @@
-# LanternPost — Architecture & Product Spec
+# MailHerd — Architecture & Product Spec
 
 As of 19 Oct 2026. This is a copy of the living spec document; the doc is the source of truth for
 decisions, and this file is updated whenever the doc changes:
@@ -6,7 +6,7 @@ https://claude.ai/code/artifact/6deb31a5-a09b-47ad-9adb-ebe997ab38ce
 
 ## Overview
 
-LanternPost is a native, cross-platform email client that makes email feel like messaging. It supports iCloud, Gmail and Microsoft 365, and shows conversations as chat bubbles while still sending normal, standards-compliant email.
+MailHerd is a native, cross-platform email client that makes email feel like messaging. It supports iCloud, Gmail and Microsoft 365, and shows conversations as chat bubbles while still sending normal, standards-compliant email.
 
 - **Audience:** personal use by the owner first. Every decision keeps a later commercial release possible (Google and Microsoft app verification, app stores, a private licence).
 - **Platforms, in order:** Linux (Ubuntu 26.04 LTS) → macOS → Windows → iOS / iPadOS → Android.
@@ -18,7 +18,7 @@ LanternPost is a native, cross-platform email client that makes email feel like 
 2. Each UI is native and thin: it renders state from the core and sends user actions back to it.
 3. Mail stays between your devices and your providers. The home backend never stores mail, with one exception: encrypted scheduled sends.
 4. Private by default: remote images blocked, trackers stripped, local data encrypted.
-5. Outgoing mail is always normal email. Recipients never need LanternPost.
+5. Outgoing mail is always normal email. Recipients never need MailHerd.
 
 ## Decisions log
 
@@ -39,7 +39,7 @@ These are the decisions from the planning interview of 19 Oct 2026.
 | Accounts | Personal iCloud, personal Gmail, Microsoft 365 work tenant (owner is admin) | |
 | Chat model | Threads view and People view, switchable | Each thread can show as bubbles or as classic email |
 | Quotes | Strip quoted history and signatures, with an expander | Detection is tested against a test corpus |
-| Outgoing mail | Normal email | Correct threading headers, HTML plus plain text, quoted history for recipients who aren't on LanternPost |
+| Outgoing mail | Normal email | Correct threading headers, HTML plus plain text, quoted history for recipients who aren't on MailHerd |
 | Group reply | Reply to everyone by default | Recipients can be narrowed, or a reply sent privately to one person |
 | Inbox | Combined inbox plus per-account views | Colour accent per account |
 | Threads across accounts | Merged into one thread | |
@@ -68,7 +68,7 @@ These are the decisions from the planning interview of 19 Oct 2026.
 | Mobile | Swipe gestures, widgets, share sheet, rich notifications, watch support | |
 | v0.1 scope | Core chat email | See the phase plan |
 | Sending identities | Main address per account in v0.1 | The data model supports aliases, which come in v0.3 |
-| Name and licence | LanternPost; private, all rights reserved | |
+| Name and licence | MailHerd; private, all rights reserved | |
 
 ## System architecture
 
@@ -81,7 +81,7 @@ Four native apps sit on one shared Rust core. The core talks to each mail provid
  └──────▲───────┘  └──────▲───────┘  └──────▲───────┘  └──────▲───────┘
      cxx-qt            UniFFI      uniffi-bindgen-cs       UniFFI
  ┌──────▼─────────────────▼─────────────────▼─────────────────▼───────┐
- │ Shared Rust core (lanternpost-core)  owns all mail logic and state  │
+ │ Shared Rust core (mailherd-core)  owns all mail logic and state  │
  │  View models · Sync + outbox · Threads + chat · Store + search      │
  │  MIME + sanitiser · Provider adapters · OAuth + keychain · OpenPGP  │
  └──────▲─────────────────▲─────────────────▲─────────────────▲───────┘
@@ -110,7 +110,7 @@ Each provider is reached through its best-supported interface, behind one common
 | Real-time, mobile | Backend IMAP IDLE → APNs/FCM | Pub/Sub → backend → APNs/FCM | Graph webhooks → backend → APNs/FCM |
 | Thread ID | Computed from headers (JWZ algorithm) | Native `threadId` | Native `conversationId` |
 | Labels / folders | Folders | Labels | Folders plus categories |
-| App state storage | IMAP keywords (`$LP_Pinned` and so on) plus a hidden `LanternPost` folder | Hidden labels (`LanternPost/Pinned` and so on) | Single-value extended properties plus categories |
+| App state storage | IMAP keywords (`$MH_Pinned` and so on) plus a hidden `MailHerd` folder | Hidden labels (`MailHerd/Pinned` and so on) | Single-value extended properties plus categories |
 | Scheduled send | Backend (encrypted) | Backend (encrypted) | Native deferred send (`PidTagDeferredSendTime`) |
 | Server rules | None (no API) | Gmail filters API | Inbox rules API (`messageRules`) |
 | Contacts | CardDAV | People API | Graph contacts and people |
@@ -125,26 +125,26 @@ Each provider is reached through its best-supported interface, behind one common
 
 ## Core design
 
-The Rust core (`lanternpost-core`) is a library that every app embeds. UIs call it to perform actions and subscribe to live view models.
+The Rust core (`mailherd-core`) is a library that every app embeds. UIs call it to perform actions and subscribe to live view models.
 
 **Crates (modules)**
 
 | Crate | Responsibility | Key libraries |
 | --- | --- | --- |
-| `lp-model` | Shared types: Account, Identity, Message, Thread, Person, Label | serde |
-| `lp-store` | Encrypted SQLite store, schema migrations, blob cache for bodies and attachments | rusqlite + SQLCipher |
-| `lp-search` | Full-text index with operators (`from:`, `has:attachment`, `before:`) and server fallback for older mail | tantivy |
-| `lp-mime` | Parse and build MIME, decode charsets, sanitise HTML, strip trackers | mail-parser, mail-builder, ammonia |
-| `lp-provider-imap` | iCloud IMAP and SMTP | async-imap, lettre |
-| `lp-provider-gmail` | Gmail, People, Calendar and Drive REST APIs | reqwest |
-| `lp-provider-graph` | Microsoft Graph mail, contacts, calendar and OneDrive | reqwest |
-| `lp-auth` | OAuth PKCE flows, token refresh, keychain storage | oauth2, keyring |
-| `lp-sync` | Sync engine, offline action queue, conflict handling | tokio |
-| `lp-thread` | Threading, cross-account merge, People grouping | |
-| `lp-chat` | Quote and signature stripping, bubble models | |
-| `lp-classify` | Smart categories and app-side rules | |
-| `lp-crypto` | OpenPGP and Autocrypt, later S/MIME | sequoia-openpgp |
-| `lp-app` | App state, view models, action dispatch; the API exposed to UIs | uniffi |
+| `mh-model` | Shared types: Account, Identity, Message, Thread, Person, Label | serde |
+| `mh-store` | Encrypted SQLite store, schema migrations, blob cache for bodies and attachments | rusqlite + SQLCipher |
+| `mh-search` | Full-text index with operators (`from:`, `has:attachment`, `before:`) and server fallback for older mail | tantivy |
+| `mh-mime` | Parse and build MIME, decode charsets, sanitise HTML, strip trackers | mail-parser, mail-builder, ammonia |
+| `mh-provider-imap` | iCloud IMAP and SMTP | async-imap, lettre |
+| `mh-provider-gmail` | Gmail, People, Calendar and Drive REST APIs | reqwest |
+| `mh-provider-graph` | Microsoft Graph mail, contacts, calendar and OneDrive | reqwest |
+| `mh-auth` | OAuth PKCE flows, token refresh, keychain storage | oauth2, keyring |
+| `mh-sync` | Sync engine, offline action queue, conflict handling | tokio |
+| `mh-thread` | Threading, cross-account merge, People grouping | |
+| `mh-chat` | Quote and signature stripping, bubble models | |
+| `mh-classify` | Smart categories and app-side rules | |
+| `mh-crypto` | OpenPGP and Autocrypt, later S/MIME | sequoia-openpgp |
+| `mh-app` | App state, view models, action dispatch; the API exposed to UIs | uniffi |
 
 **Data model (main tables).** `accounts`, `identities`, `folders` (also used for labels), `messages` (with RFC Message-ID, provider IDs, flags and keywords), `message_folders` (many-to-many, which is how Gmail labels work), `threads`, `thread_messages`, `people`, `person_addresses`, `attachments`, `app_state` (pinned, done, snoozed and reminder records mirrored to the mailbox), `outbox` (queued actions and sends), `rules`, `signatures`, `snippets`.
 
@@ -190,7 +190,7 @@ The desktop window has three panes: a sidebar, a list, and the conversation as c
 - New conversation: Ctrl+N or `c`, with recipient autocomplete from all three accounts' contacts.
 - Undo send: a 10-second countdown bar after sending. The message is held locally until then.
 - Send later: choose a time; scheduled messages appear in Scheduled.
-- Outgoing format: multipart/alternative (HTML plus plain text), correct `In-Reply-To` and `References`, and a standard quoted reply below for recipients who aren't on LanternPost.
+- Outgoing format: multipart/alternative (HTML plus plain text), correct `In-Reply-To` and `References`, and a standard quoted reply below for recipients who aren't on MailHerd.
 
 **Triage**
 
@@ -203,11 +203,11 @@ The desktop window has three panes: a sidebar, a list, and the conversation as c
 | Send later | Schedule a send at compose time | Ctrl+Shift+Enter |
 | Smart categories | Automatic streams for People, Newsletters, Notifications and Receipts, using Gmail's own categories where available plus local rules for other accounts | — |
 
-**Rules.** One rule editor. When a rule only moves, labels or marks mail, LanternPost saves it as the provider's own filter (Gmail filters, Outlook inbox rules) so it runs even when no device is on. Other rules (snooze, notify, iCloud anything) run in the app, and on the home backend once it exists.
+**Rules.** One rule editor. When a rule only moves, labels or marks mail, MailHerd saves it as the provider's own filter (Gmail filters, Outlook inbox rules) so it runs even when no device is on. Other rules (snooze, notify, iCloud anything) run in the app, and on the home backend once it exists.
 
-**Signatures and snippets.** A rich signature per identity, plus an optional one-line chat signature. Signatures are left out of chat replies by default. Snippets are triggered by typing `;name`, with fields like `{first_name}`. Both sync through the hidden LanternPost folder or label in the primary account.
+**Signatures and snippets.** A rich signature per identity, plus an optional one-line chat signature. Signatures are left out of chat replies by default. Snippets are triggered by typing `;name`, with fields like `{first_name}`. Both sync through the hidden MailHerd folder or label in the primary account.
 
-**Attachments.** Inline previews; a Files view per conversation and per person; drag out to save, or Save All. For files over about 20 MB, LanternPost offers to upload to OneDrive or Google Drive and insert a link.
+**Attachments.** Inline previews; a Files view per conversation and per person; drag out to save, or Save All. For files over about 20 MB, MailHerd offers to upload to OneDrive or Google Drive and insert a link.
 
 **Notifications.** By default, only messages from real people (smart category People) or pinned and VIP threads notify you. Notifications include Reply, Done and Snooze buttons. Linux uses the freedesktop notification spec through Qt.
 
@@ -223,7 +223,7 @@ The desktop window has three panes: a sidebar, a list, and the conversation as c
 
 ## Home backend
 
-The backend (`lanternpost-relay`) is a small Rust service running in Docker on a home Linux mini-PC or Raspberry Pi. It is reached only through Cloudflare Tunnel, and it arrives in v0.2.
+The backend (`mailherd-relay`) is a small Rust service running in Docker on a home Linux mini-PC or Raspberry Pi. It is reached only through Cloudflare Tunnel, and it arrives in v0.2.
 
 **Jobs**
 
@@ -271,8 +271,8 @@ One private GitHub monorepo builds everything with GitHub Actions. The owner onl
 **Repository layout**
 
 ```
-lanternpost/
-  core/            Rust workspace (lp-* crates)
+mailherd/
+  core/            Rust workspace (mh-* crates)
   relay/           Rust home backend + Dockerfile
   apps/linux/      Qt 6 / QML on the core via cxx-qt (built with Cargo)
   apps/apple/      SwiftUI (macOS + iOS, Xcode project)
@@ -328,7 +328,7 @@ No dates are set: progress depends on how quickly each build is tested and repor
 
 - [ ] Google Cloud: create a project, enable the Gmail, People, Calendar and Drive APIs, configure the OAuth consent screen, add yourself as a test user, create a Desktop OAuth client ID
 - [ ] Microsoft Entra admin center: register an app (public client, redirect `http://localhost`), add the Graph permissions, grant admin consent for your tenant
-- [ ] Apple ID: create an app-specific password for LanternPost at account.apple.com
+- [ ] Apple ID: create an app-specific password for MailHerd at account.apple.com
 - [ ] Install the first `.deb` on Ubuntu 26.04 and sign in to all three accounts
 
 **Before v0.2 (backend)**

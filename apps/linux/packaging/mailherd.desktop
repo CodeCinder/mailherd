@@ -1,11 +1,11 @@
 [Desktop Entry]
 Type=Application
-Name=LanternPost
+Name=MailHerd
 GenericName=Email
 Comment=Email that feels like messaging
-Exec=lanternpost %u
-Icon=lanternpost
+Exec=mailherd %u
+Icon=mailherd
 Terminal=false
 Categories=Network;Email;Office;
 Keywords=mail;email;inbox;chat;gmail;icloud;outlook;
-StartupWMClass=lanternpost
+StartupWMClass=mailherd

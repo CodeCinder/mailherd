@@ -11,14 +11,14 @@ fn main() {
 
     let mut app = QGuiApplication::new();
     if let Some(mut app) = app.as_mut() {
-        app.as_mut().set_application_name(&QString::from("LanternPost"));
-        app.as_mut().set_organization_name(&QString::from("LanternPost"));
+        app.as_mut().set_application_name(&QString::from("MailHerd"));
+        app.as_mut().set_organization_name(&QString::from("MailHerd"));
         app.as_mut().set_application_version(&QString::from(env!("CARGO_PKG_VERSION")));
     }
 
     let mut engine = QQmlApplicationEngine::new();
     if let Some(engine) = engine.as_mut() {
-        engine.load(&QUrl::from("qrc:/qt/qml/LanternPost/qml/Main.qml"));
+        engine.load(&QUrl::from("qrc:/qt/qml/MailHerd/qml/Main.qml"));
     }
 
     let code = app.as_mut().map(|app| app.exec()).unwrap_or(1);

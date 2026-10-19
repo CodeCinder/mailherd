@@ -4,7 +4,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use lp_chat::split_reply;
+use mh_chat::split_reply;
 
 #[derive(Default)]
 struct Case {

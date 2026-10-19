@@ -1,10 +1,10 @@
 //! Building outgoing messages: multipart/alternative with correct threading
 //! headers and a standard quote of the previous message.
 
-use lp_model::{Address, Timestamp};
 use mail_builder::MessageBuilder;
 use mail_builder::headers::address::Address as BuilderAddress;
 use mail_builder::headers::message_id::MessageId;
+use mh_model::{Address, Timestamp};
 
 /// The message being replied to, quoted below the new text for recipients
 /// who read mail in an ordinary client.
@@ -91,7 +91,7 @@ fn html_body(message: &OutgoingMessage) -> String {
     let mut html = String::from("<!DOCTYPE html><html><body>\n");
     html.push_str(&text_to_html(message.text.trim_end()));
     if let Some(quote) = &message.quote {
-        html.push_str("\n<div class=\"lp_quote\"><p>");
+        html.push_str("\n<div class=\"mh_quote\"><p>");
         html.push_str(
             &text_to_html(&attribution(quote))
                 .replace("<p>", "")
@@ -147,7 +147,7 @@ mod tests {
 
     fn reply() -> OutgoingMessage {
         OutgoingMessage {
-            message_id: "new@lanternpost.local".into(),
+            message_id: "new@mailherd.local".into(),
             from: Address::new(Some("Me"), "me@example.org"),
             to: vec![Address::new(Some("Ada"), "ada@example.org")],
             cc: vec![Address::new(None, "bob@example.org")],
@@ -176,10 +176,7 @@ mod tests {
     fn built_reply_round_trips_through_the_parser() {
         let raw = build_message(&reply()).expect("builds");
         let parsed = parse_message(&raw).expect("parses");
-        assert_eq!(
-            parsed.rfc_message_id.as_deref(),
-            Some("new@lanternpost.local")
-        );
+        assert_eq!(parsed.rfc_message_id.as_deref(), Some("new@mailherd.local"));
         assert_eq!(parsed.in_reply_to, vec!["m1@example.org"]);
         assert_eq!(parsed.references, vec!["m0@example.org", "m1@example.org"]);
         assert_eq!(parsed.subject, "Re: Lunch");

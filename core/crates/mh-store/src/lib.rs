@@ -5,7 +5,7 @@
 
 use std::path::Path;
 
-use lp_model::{
+use mh_model::{
     Account, AccountId, Address, AttachmentInfo, Body, Flags, MessageHeader, MessageId,
     ProviderKind, ThreadState, Timestamp,
 };
@@ -19,7 +19,7 @@ pub enum StoreError {
     Sql(#[from] rusqlite::Error),
     #[error("stored data is corrupt: {0}")]
     Corrupt(String),
-    #[error("the database key is wrong or the file is not a LanternPost database")]
+    #[error("the database key is wrong or the file is not a MailHerd database")]
     BadKey,
 }
 
@@ -731,7 +731,7 @@ mod tests {
 
     #[test]
     fn encrypted_database_needs_the_right_key() -> Result<()> {
-        let dir = std::env::temp_dir().join(format!("lp-store-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("mh-store-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).map_err(|e| StoreError::Corrupt(e.to_string()))?;
         let path = dir.join("mail.db");
         let _ = std::fs::remove_file(&path);

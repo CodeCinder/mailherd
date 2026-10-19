@@ -2,8 +2,8 @@
 //! conversations, so the UI can be tried before any real account is connected.
 //! Every person, address and message here is made up.
 
-use lp_model::{Account, Flags, ProviderKind, Timestamp};
-use lp_store::{FolderRole, Store};
+use mh_model::{Account, Flags, ProviderKind, Timestamp};
+use mh_store::{FolderRole, Store};
 
 use crate::{Core, Incoming, RemoteAction, Result, Transport};
 

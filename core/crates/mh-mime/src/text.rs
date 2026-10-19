@@ -4,7 +4,7 @@
 const RENDER_WIDTH: usize = 10_000;
 
 /// Convert HTML to plain text. Blockquotes become `> ` prefixed lines, so the
-/// quote stripper in `lp-chat` treats HTML and plain-text replies the same way.
+/// quote stripper in `mh-chat` treats HTML and plain-text replies the same way.
 pub fn html_to_text(html: &str) -> String {
     let rendered = html2text::config::plain_no_decorate()
         .link_footnotes(false)

@@ -1,6 +1,6 @@
 //! Labels for dates, avatars and names, shared by every UI.
 
-use lp_model::{Address, Timestamp};
+use mh_model::{Address, Timestamp};
 use time::{Date, OffsetDateTime, UtcOffset};
 
 /// Avatar background colours (0xRRGGBB), chosen to stay readable with white initials.
