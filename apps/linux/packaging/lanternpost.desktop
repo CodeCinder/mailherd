@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=LanternPost
+GenericName=Email
+Comment=Email that feels like messaging
+Exec=lanternpost %u
+Icon=lanternpost
+Terminal=false
+Categories=Network;Email;Office;
+Keywords=mail;email;inbox;chat;gmail;icloud;outlook;
+StartupWMClass=lanternpost

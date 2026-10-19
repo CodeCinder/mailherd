@@ -1,0 +1,44 @@
+[package]
+name = "lanternpost"
+description = "LanternPost email client for Linux"
+version = "0.1.0"
+edition = "2024"
+license = "LicenseRef-Proprietary"
+publish = false
+authors = ["Michael Guglielmo"]
+homepage = "https://github.com/prophetizer/lanternpost"
+
+# The Linux app is its own workspace so the core's tests never need Qt.
+[workspace]
+
+[dependencies]
+cxx = "1"
+cxx-qt = "0.10"
+cxx-qt-lib = { version = "0.10", features = ["qt_gui", "qt_qml", "qt_quickcontrols"] }
+lp-app = { path = "../../core/crates/lp-app" }
+serde = "1.0"
+serde_json = "1.0"
+
+[build-dependencies]
+cxx-qt-build = { version = "0.10", features = ["link_qt_object_files"] }
+
+[profile.release]
+lto = "thin"
+strip = true
+
+[package.metadata.deb]
+name = "lanternpost"
+maintainer = "Michael Guglielmo"
+copyright = "2026 Michael Guglielmo. All rights reserved."
+license-file = ["../../LICENSE", "0"]
+extended-description = "LanternPost is an email client for iCloud, Gmail and Microsoft 365 that shows conversations as chat bubbles while sending normal email."
+section = "mail"
+priority = "optional"
+# $auto finds the Qt libraries the binary links; the QML modules are loaded at
+# run time, so they are listed by hand.
+depends = "$auto, qml6-module-qtquick, qml6-module-qtquick-controls, qml6-module-qtquick-layouts, qml6-module-qtquick-window, qml6-module-qtquick-templates, qml6-module-qtqml-workerscript"
+assets = [
+    ["target/release/lanternpost", "usr/bin/", "755"],
+    ["packaging/lanternpost.desktop", "usr/share/applications/", "644"],
+    ["packaging/lanternpost.svg", "usr/share/icons/hicolor/scalable/apps/", "644"],
+]
