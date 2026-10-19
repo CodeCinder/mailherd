@@ -25,6 +25,7 @@ All platforms share one Rust core (`core/`) that owns sync, threading, the chat 
 
 - [Architecture and product spec](docs/SPEC.md)
 - [Installing a test build](docs/INSTALL.md)
+- [Account setup (one time)](docs/ACCOUNT_SETUP.md)
 
 ## Licence
 
