@@ -813,6 +813,11 @@ impl Core {
         })
     }
 
+    /// Sanitised HTML of a message, for the "Show full email" view.
+    pub fn message_html(&self, id: MessageId) -> Option<String> {
+        self.store.body(id).ok().flatten().and_then(|b| b.html)
+    }
+
     fn person_threads(&self, key: &str) -> Vec<&Thread> {
         let mut threads: Vec<&Thread> = self
             .cache

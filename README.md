@@ -7,7 +7,7 @@ A native, cross-platform email client that makes email feel like messaging. It w
 - Normal, standards-compliant email going out, so recipients never need LanternPost
 - Private by default: remote images blocked, trackers stripped, local data encrypted
 
-**Status:** early development, building towards v0.1 (Linux). Nothing is ready to use yet.
+**Status:** early development, building towards v0.1 (Linux). The Linux app runs on demo data; real accounts are not connected yet.
 
 ## Platforms
 
@@ -24,6 +24,7 @@ All platforms share one Rust core (`core/`) that owns sync, threading, the chat 
 ## Documentation
 
 - [Architecture and product spec](docs/SPEC.md)
+- [Installing a test build](docs/INSTALL.md)
 
 ## Licence
 

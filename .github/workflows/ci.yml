@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  core:
+    name: Core tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - name: Format
+        working-directory: core
+        run: cargo fmt --all --check
+      - name: Lint
+        working-directory: core
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        working-directory: core
+        run: cargo test --workspace
+
+  linux:
+    name: Linux app (.deb for Ubuntu 26.04)
+    runs-on: ubuntu-latest
+    container: ubuntu:26.04
+    steps:
+      - name: Install build tools and Qt
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential ca-certificates curl git pkg-config libssl-dev dpkg-dev \
+            qt6-base-dev qt6-declarative-dev qml6-module-qtquick qml6-module-qtquick-controls \
+            qml6-module-qtquick-layouts qml6-module-qtquick-window qml6-module-qtquick-templates \
+            qml6-module-qtqml-workerscript libgl-dev xvfb xauth xdotool imagemagick fonts-noto-core \
+            fonts-noto-color-emoji
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/linux
+      - name: Build
+        working-directory: apps/linux
+        run: cargo build --release --locked
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deb
+      - name: Package
+        working-directory: apps/linux
+        run: cargo deb --no-build --deb-version "0.1.0~dev${{ github.run_number }}" -o ../../dist/
+      - name: Screenshots
+        working-directory: apps/linux
+        run: |
+          xvfb-run -a -s "-screen 0 1240x800x24" \
+            ./packaging/screenshots.sh target/release/lanternpost ../../dist/screenshots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lanternpost-deb
+          path: dist/*.deb
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: dist/screenshots/

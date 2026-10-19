@@ -274,7 +274,7 @@ One private GitHub monorepo builds everything with GitHub Actions. The owner onl
 lanternpost/
   core/            Rust workspace (lp-* crates)
   relay/           Rust home backend + Dockerfile
-  apps/linux/      Qt 6 / QML + C++ (CMake, cxx-qt)
+  apps/linux/      Qt 6 / QML on the core via cxx-qt (built with Cargo)
   apps/apple/      SwiftUI (macOS + iOS, Xcode project)
   apps/windows/    WinUI 3 / C# (MSBuild)
   apps/android/    Kotlin / Compose (Gradle)
