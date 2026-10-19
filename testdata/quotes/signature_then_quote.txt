@@ -1,0 +1,12 @@
+=== input
+Agreed.
+
+-- 
+Bob
+
+On Mon, Oct 19, 2026 at 11:02 AM Ada Lovelace <ada@example.org> wrote:
+> Shall we ship on Friday?
+=== new
+Agreed.
+=== signature
+Bob

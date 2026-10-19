@@ -1,0 +1,6 @@
+=== input
+Yes please.
+
+> Do you want a copy of the minutes?
+=== new
+Yes please.

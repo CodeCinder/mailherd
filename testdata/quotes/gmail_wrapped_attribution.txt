@@ -1,0 +1,9 @@
+=== input
+Works for me.
+
+On Mon, Oct 19, 2026 at 11:02 AM Augusta Ada King-Noel, Countess of Lovelace <
+ada.lovelace@analytical-engines.example.org> wrote:
+
+> Shall we move the review to Thursday?
+=== new
+Works for me.

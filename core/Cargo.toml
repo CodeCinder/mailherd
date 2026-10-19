@@ -1,0 +1,37 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "LicenseRef-Proprietary"
+publish = false
+rust-version = "1.85"
+
+[workspace.dependencies]
+lp-model = { path = "crates/lp-model" }
+lp-mime = { path = "crates/lp-mime" }
+lp-chat = { path = "crates/lp-chat" }
+lp-thread = { path = "crates/lp-thread" }
+lp-store = { path = "crates/lp-store" }
+lp-app = { path = "crates/lp-app" }
+
+ammonia = "4.2"
+html2text = "0.17"
+mail-builder = "1.0"
+mail-parser = "0.11"
+regex = "1.13"
+rusqlite = { version = "0.40", features = ["bundled-sqlcipher"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+time = { version = "0.3", features = ["formatting", "macros", "local-offset"] }
+url = "2.5"
+uuid = { version = "1.28", features = ["v4"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+unwrap_used = "warn"

@@ -1,0 +1,11 @@
+=== input
+Yes, Thursday works.
+
+*From:* Grace Hopper <grace@example.org>
+*Date:* Monday, 19 October 2026 at 11:02
+*To:* Bob Smith <bob@example.org>
+*Subject:* Meeting
+
+Does Thursday work?
+=== new
+Yes, Thursday works.

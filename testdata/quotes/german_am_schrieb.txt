@@ -1,0 +1,7 @@
+=== input
+Klingt gut!
+
+Am Mo., 19. Okt. 2026 um 11:02 Uhr schrieb Ada Lovelace <ada@example.org>:
+> Treffen wir uns morgen?
+=== new
+Klingt gut!

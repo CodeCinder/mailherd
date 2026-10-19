@@ -1,0 +1,7 @@
+=== input
+好的，明天见。
+
+在 2026年10月19日 11:02，Ada Lovelace <ada@example.org> 写道：
+> 明天见面吗？
+=== new
+好的，明天见。

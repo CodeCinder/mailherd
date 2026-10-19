@@ -1,0 +1,12 @@
+=== input
+Got it, will review today.
+
+________________________________
+From: Grace Hopper <grace@example.org>
+Sent: Monday, 19 October 2026 11:02
+To: Bob Smith <bob@example.org>
+Subject: Draft contract
+
+Please see the draft.
+=== new
+Got it, will review today.

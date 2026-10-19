@@ -1,0 +1,14 @@
+=== input
+Hi team,
+
+The office is closed on Friday.
+
+Thanks,
+Grace
+=== new
+Hi team,
+
+The office is closed on Friday.
+
+Thanks,
+Grace

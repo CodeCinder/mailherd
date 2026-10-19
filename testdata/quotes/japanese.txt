@@ -1,0 +1,7 @@
+=== input
+承知しました。
+
+2026年10月19日(月) 11:02 Ada Lovelace <ada@example.org>:
+> 明日会えますか？
+=== new
+承知しました。

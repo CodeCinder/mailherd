@@ -1,0 +1,21 @@
+=== input
+Hi Grace,
+
+Approved — please go ahead.
+
+Thanks,
+Bob
+
+From: Grace Hopper <grace@example.org>
+Sent: Monday, October 19, 2026 11:02 AM
+To: Bob Smith <bob@example.org>
+Subject: Budget request
+
+Hi Bob, can you approve the attached budget?
+=== new
+Hi Grace,
+
+Approved — please go ahead.
+
+Thanks,
+Bob

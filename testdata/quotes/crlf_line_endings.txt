@@ -1,0 +1,7 @@
+=== input
+Done.
+
+On Mon, Oct 19, 2026 at 11:02 AM Ada <ada@example.org> wrote:
+> Is it done?
+=== new
+Done.

@@ -1,0 +1,7 @@
+=== input
+Va benissimo.
+
+Il giorno lun 19 ott 2026 alle ore 11:02 Ada Lovelace <ada@example.org> ha scritto:
+> Ci vediamo domani?
+=== new
+Va benissimo.

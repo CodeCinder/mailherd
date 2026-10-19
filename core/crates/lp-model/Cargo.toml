@@ -1,0 +1,13 @@
+[package]
+name = "lp-model"
+description = "Shared data types for the LanternPost core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+
+[lints]
+workspace = true

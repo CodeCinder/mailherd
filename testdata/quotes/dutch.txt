@@ -1,0 +1,7 @@
+=== input
+Prima, tot dan.
+
+Op ma 19 okt. 2026 om 11:02 schreef Ada Lovelace <ada@example.org>:
+> Zien we elkaar morgen?
+=== new
+Prima, tot dan.

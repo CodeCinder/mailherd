@@ -1,0 +1,22 @@
+[package]
+name = "lp-app"
+description = "App state, view models and actions: the API every LanternPost UI uses"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+lp-chat.workspace = true
+lp-mime.workspace = true
+lp-model.workspace = true
+lp-store.workspace = true
+lp-thread.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+time.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true

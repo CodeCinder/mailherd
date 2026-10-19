@@ -1,0 +1,12 @@
+=== input
+Begin forwarded message:
+
+From: Grace Hopper <grace@example.org>
+Subject: Launch plan
+Date: 19 October 2026 at 11:02:00 BST
+To: bob@example.org
+
+Launch is on track for Friday.
+=== new
+=== forwarded
+true

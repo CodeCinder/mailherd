@@ -1,0 +1,9 @@
+=== input
+Sounds great, see you at 1.
+
+On Mon, Oct 19, 2026 at 11:02 AM Ada Lovelace <ada@example.org> wrote:
+> Lunch tomorrow?
+>
+> Ada
+=== new
+Sounds great, see you at 1.

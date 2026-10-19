@@ -1,0 +1,14 @@
+=== input
+FYI, see below.
+
+---------- Forwarded message ---------
+From: Grace Hopper <grace@example.org>
+Date: Mon, Oct 19, 2026 at 11:02 AM
+Subject: Launch plan
+To: <bob@example.org>
+
+Launch is on track for Friday.
+=== new
+FYI, see below.
+=== forwarded
+true

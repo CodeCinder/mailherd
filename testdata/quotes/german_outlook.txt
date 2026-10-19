@@ -1,0 +1,11 @@
+=== input
+Danke, passt so.
+
+Von: Grace Hopper <grace@example.org>
+Gesendet: Montag, 19. Oktober 2026 11:02
+An: Bob Smith <bob@example.org>
+Betreff: Angebot
+
+Anbei das Angebot.
+=== new
+Danke, passt so.
