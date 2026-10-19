@@ -1,0 +1,24 @@
+# Rust
+/core/target/
+/relay/target/
+target/
+
+# CMake / Qt
+/apps/linux/build/
+build/
+*.user
+CMakeLists.txt.user*
+
+# Packaging output
+/dist/
+*.deb
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Local secrets (never commit)
+.env
+*.local.toml
