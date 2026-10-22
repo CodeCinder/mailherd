@@ -1311,6 +1311,18 @@ dependencies = [
 [[package]]
 name = "mh-sync"
 version = "0.1.0"
+dependencies = [
+ "mh-app",
+ "mh-auth",
+ "mh-model",
+ "mh-provider-gmail",
+ "mh-provider-graph",
+ "mh-provider-imap",
+ "mh-store",
+ "serde",
+ "url",
+ "uuid",
+]
 
 [[package]]
 name = "mh-thread"

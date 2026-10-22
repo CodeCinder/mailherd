@@ -1,5 +1,6 @@
 [package]
 name = "mh-sync"
+description = "Background sync: one worker per account, sign-in, and the outbox transport"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,6 +8,19 @@ publish.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+mh-app.workspace = true
+mh-auth.workspace = true
+mh-model.workspace = true
+mh-provider-gmail.workspace = true
+mh-provider-graph.workspace = true
+mh-provider-imap.workspace = true
+serde.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+mh-auth = { workspace = true, features = ["testing"] }
+mh-store.workspace = true
+url.workspace = true
 
 [lints]
 workspace = true
