@@ -1,14 +1,22 @@
 [package]
 name = "mh-provider-imap"
+description = "IMAP and SMTP mail (iCloud): sync, send and mailbox changes"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
-rust-version.workspace = true
 
 [dependencies]
-imap = { version = "3.0.0-alpha.15", default-features = false, features = ["rustls-tls"] }
-lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "rustls-tls", "builder"] }
+imap.workspace = true
+imap-proto.workspace = true
+lettre.workspace = true
+mh-app.workspace = true
+mh-mime.workspace = true
+mh-model.workspace = true
+mh-store.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+time.workspace = true
 
 [lints]
 workspace = true

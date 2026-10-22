@@ -1,12 +1,24 @@
 [package]
 name = "mh-provider-graph"
+description = "Microsoft 365 mail through Microsoft Graph: sync, send and mailbox changes"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
-rust-version.workspace = true
 
 [dependencies]
+base64.workspace = true
+mh-app.workspace = true
+mh-auth.workspace = true
+mh-model.workspace = true
+mh-store.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+time.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+mh-auth = { workspace = true, features = ["testing"] }
 
 [lints]
 workspace = true

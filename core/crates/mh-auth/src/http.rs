@@ -30,6 +30,8 @@ pub type HttpResult<T> = Result<T, HttpError>;
 #[derive(Clone)]
 pub struct Http {
     agent: ureq::Agent,
+    /// Sent with every request (Graph's `Prefer` options, for example).
+    headers: Vec<(String, String)>,
 }
 
 impl Default for Http {
@@ -63,7 +65,14 @@ impl Http {
             .build();
         Self {
             agent: config.into(),
+            headers: Vec::new(),
         }
+    }
+
+    /// Add a header to every request this client makes.
+    pub fn with_header(mut self, name: &str, value: &str) -> Self {
+        self.headers.push((name.to_string(), value.to_string()));
+        self
     }
 
     fn finish(mut response: ureq::http::Response<ureq::Body>) -> HttpResult<Vec<u8>> {
@@ -93,12 +102,14 @@ impl Http {
 
     /// GET with a bearer token, returning the raw body.
     pub fn get_bytes(&self, url: &str, token: &str) -> HttpResult<Vec<u8>> {
-        let response = self
+        let mut request = self
             .agent
             .get(url)
-            .header("Authorization", &format!("Bearer {token}"))
-            .call()
-            .map_err(transport_error)?;
+            .header("Authorization", &format!("Bearer {token}"));
+        for (k, v) in &self.headers {
+            request = request.header(k, v);
+        }
+        let response = request.call().map_err(transport_error)?;
         Self::finish(response)
     }
 
@@ -115,24 +126,16 @@ impl Http {
         body: &B,
     ) -> HttpResult<T> {
         let auth = format!("Bearer {token}");
-        let response = match method {
-            "PATCH" => self
-                .agent
-                .patch(url)
-                .header("Authorization", &auth)
-                .send_json(body),
-            "PUT" => self
-                .agent
-                .put(url)
-                .header("Authorization", &auth)
-                .send_json(body),
-            _ => self
-                .agent
-                .post(url)
-                .header("Authorization", &auth)
-                .send_json(body),
+        let mut request = match method {
+            "PATCH" => self.agent.patch(url),
+            "PUT" => self.agent.put(url),
+            _ => self.agent.post(url),
         }
-        .map_err(transport_error)?;
+        .header("Authorization", &auth);
+        for (k, v) in &self.headers {
+            request = request.header(k, v);
+        }
+        let response = request.send_json(body).map_err(transport_error)?;
         Self::decode(&Self::finish(response)?)
     }
 
@@ -144,13 +147,15 @@ impl Http {
         content_type: &str,
         body: &[u8],
     ) -> HttpResult<Vec<u8>> {
-        let response = self
+        let mut request = self
             .agent
             .post(url)
             .header("Authorization", &format!("Bearer {token}"))
-            .header("Content-Type", content_type)
-            .send(body)
-            .map_err(transport_error)?;
+            .header("Content-Type", content_type);
+        for (k, v) in &self.headers {
+            request = request.header(k, v);
+        }
+        let response = request.send(body).map_err(transport_error)?;
         Self::finish(response)
     }
 
@@ -170,74 +175,9 @@ impl Http {
 }
 
 #[cfg(test)]
-pub(crate) mod testing {
-    //! A tiny HTTP server for tests: answers each request with the next canned
-    //! response and records what it received.
-
-    use std::io::{BufRead, BufReader, Read, Write};
-    use std::net::TcpListener;
-    use std::sync::{Arc, Mutex};
-    use std::thread;
-
-    #[derive(Debug, Clone)]
-    pub struct Recorded {
-        pub request_line: String,
-        pub headers: Vec<String>,
-        pub body: String,
-    }
-
-    pub struct MockServer {
-        pub url: String,
-        pub requests: Arc<Mutex<Vec<Recorded>>>,
-    }
-
-    pub fn serve(responses: Vec<(u16, &'static str)>) -> MockServer {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
-        let url = format!("http://{}", listener.local_addr().expect("addr"));
-        let requests = Arc::new(Mutex::new(Vec::new()));
-        let log = Arc::clone(&requests);
-        thread::spawn(move || {
-            for (status, body) in responses {
-                let Ok((mut stream, _)) = listener.accept() else {
-                    return;
-                };
-                let mut reader = BufReader::new(stream.try_clone().expect("clone"));
-                let mut request_line = String::new();
-                let _ = reader.read_line(&mut request_line);
-                let mut headers = Vec::new();
-                let mut length = 0usize;
-                loop {
-                    let mut line = String::new();
-                    if reader.read_line(&mut line).unwrap_or(0) == 0 || line == "\r\n" {
-                        break;
-                    }
-                    if let Some(v) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                        length = v.trim().parse().unwrap_or(0);
-                    }
-                    headers.push(line.trim_end().to_string());
-                }
-                let mut buf = vec![0u8; length];
-                let _ = reader.read_exact(&mut buf);
-                log.lock().expect("lock").push(Recorded {
-                    request_line: request_line.trim_end().to_string(),
-                    headers,
-                    body: String::from_utf8_lossy(&buf).into_owned(),
-                });
-                let reply = format!(
-                    "HTTP/1.1 {status} X\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                    body.len()
-                );
-                let _ = stream.write_all(reply.as_bytes());
-            }
-        });
-        MockServer { url, requests }
-    }
-}
-
-#[cfg(test)]
 mod tests {
-    use super::testing::serve;
     use super::*;
+    use crate::testing::serve;
 
     #[test]
     fn decodes_json_and_sends_the_token() {

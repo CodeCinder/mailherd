@@ -367,7 +367,7 @@ pub fn refresh(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::http::testing::serve;
+    use crate::testing::serve;
 
     fn test_client(token_url: &str) -> OAuthClient {
         let mut c = OAuthClient::google("cid.apps.googleusercontent.com", "sec");

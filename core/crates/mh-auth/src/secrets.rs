@@ -209,7 +209,7 @@ fn parse_key(hex: &str) -> Option<[u8; 32]> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::http::testing::serve;
+    use crate::testing::serve;
 
     fn vault() -> Vault {
         Vault::new(Arc::new(MemoryStore::default()))

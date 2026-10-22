@@ -7,6 +7,8 @@
 pub mod http;
 pub mod oauth;
 pub mod secrets;
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
 
 pub use oauth::{AuthError, OAuthClient, Provider, SignIn, Tokens};
 pub use secrets::{Credential, KeyringStore, MemoryStore, SecretStore, Vault, VaultError};

@@ -1255,17 +1255,46 @@ dependencies = [
 [[package]]
 name = "mh-provider-gmail"
 version = "0.1.0"
+dependencies = [
+ "base64 0.23.1",
+ "mh-app",
+ "mh-auth",
+ "mh-model",
+ "mh-store",
+ "serde",
+ "serde_json",
+ "url",
+]
 
 [[package]]
 name = "mh-provider-graph"
 version = "0.1.0"
+dependencies = [
+ "base64 0.23.1",
+ "mh-app",
+ "mh-auth",
+ "mh-model",
+ "mh-store",
+ "serde",
+ "serde_json",
+ "time",
+ "url",
+]
 
 [[package]]
 name = "mh-provider-imap"
 version = "0.1.0"
 dependencies = [
  "imap",
+ "imap-proto",
  "lettre",
+ "mh-app",
+ "mh-mime",
+ "mh-model",
+ "mh-store",
+ "serde",
+ "serde_json",
+ "time",
 ]
 
 [[package]]

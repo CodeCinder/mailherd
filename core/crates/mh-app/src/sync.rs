@@ -211,3 +211,39 @@ impl Core {
         self.reload()
     }
 }
+
+/// Days of mail fetched on an account's first sync. Older mail comes later.
+pub const INITIAL_SYNC_DAYS: i64 = 90;
+/// Most messages fetched per folder on an account's first sync.
+pub const INITIAL_SYNC_LIMIT: usize = 1000;
+
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ProviderError {
+    /// The saved sign-in was rejected; the user has to sign in again.
+    #[error("the account needs to be signed in again")]
+    NeedsSignIn,
+    /// Offline, rate limited or a server hiccup; the engine retries later.
+    #[error("{0}")]
+    Retry(String),
+    /// The request itself is wrong; retrying won't help.
+    #[error("{0}")]
+    Failed(String),
+}
+
+/// Fetches a valid access token, refreshing it when needed.
+pub type AccessToken = Box<dyn FnMut() -> std::result::Result<String, ProviderError> + Send>;
+
+/// One mail service. Each account's background worker owns one.
+pub trait MailProvider: Send {
+    /// Bring the store up to date by emitting events. `cursor` is what the
+    /// previous pass returned (`None` on the first sync). Returns the new cursor.
+    fn sync(
+        &mut self,
+        cursor: Option<&str>,
+        emit: &mut dyn FnMut(SyncEvent),
+    ) -> std::result::Result<String, ProviderError>;
+
+    fn send(&mut self, raw: &[u8]) -> std::result::Result<(), ProviderError>;
+
+    fn apply(&mut self, action: &crate::RemoteAction) -> std::result::Result<(), ProviderError>;
+}

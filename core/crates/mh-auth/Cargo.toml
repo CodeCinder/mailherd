@@ -17,5 +17,9 @@ thiserror.workspace = true
 ureq.workspace = true
 url.workspace = true
 
+[features]
+# Fake HTTP servers for other crates' tests.
+testing = []
+
 [lints]
 workspace = true
