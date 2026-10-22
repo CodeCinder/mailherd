@@ -28,6 +28,9 @@ pub struct AccountRow {
     pub provider: String,
     pub color: String,
     pub unread_count: usize,
+    /// "Syncing 120 of 500", "Up to date", "Sign in again"…
+    pub status: String,
+    pub needs_sign_in: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

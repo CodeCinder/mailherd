@@ -14,12 +14,13 @@ use mh_model::{
     Account, AccountId, Address, Flags, MessageHeader, MessageId, ProviderKind, ThreadState,
     Timestamp, normalize_email,
 };
-use mh_store::{FolderRole, NewMessage, Store, StoreError};
+use mh_store::{FolderRole, NewMessage, OutboxItem, Store, StoreError};
 use mh_thread::{Thread, build_threads, people_key};
 use serde::{Deserialize, Serialize};
 
 pub mod demo;
 pub mod format;
+pub mod sync;
 pub mod view;
 
 use format::{Clock, avatar_color, initials, names_label, size_label};
@@ -69,15 +70,35 @@ pub enum RemoteAction {
     },
 }
 
-/// How the core reaches mail providers. Implemented per provider by the sync layer,
-/// and by [`demo::DemoTransport`] for the offline demo.
+/// Work the core hands to the provider layer: one outbox item.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OutboxJob {
+    pub id: i64,
+    pub account: Account,
+    pub work: Work,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Work {
+    /// Send this RFC 5322 message.
+    Send { raw: Vec<u8> },
+    /// Make this change in the mailbox.
+    Apply(RemoteAction),
+}
+
+/// The outcome of an [`OutboxJob`], reported back by the provider layer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct JobResult {
+    pub id: i64,
+    pub result: std::result::Result<(), String>,
+}
+
+/// How the core reaches mail providers. Jobs run in the background so the UI
+/// never waits on the network: the core submits work and later polls for results.
+/// Implemented by the sync engine, and by [`demo::DemoTransport`] for the offline demo.
 pub trait Transport: Send {
-    fn send(&mut self, account: &Account, raw: &[u8]) -> std::result::Result<(), String>;
-    fn apply(
-        &mut self,
-        account: &Account,
-        action: &RemoteAction,
-    ) -> std::result::Result<(), String>;
+    fn submit(&mut self, job: OutboxJob);
+    fn poll(&mut self) -> Vec<JobResult>;
 }
 
 /// A raw message arriving from a provider.
@@ -123,6 +144,8 @@ pub struct Core {
     utc_offset: i32,
     undo_seconds: i64,
     cache: Cache,
+    in_flight: HashMap<i64, OutboxItem>,
+    statuses: HashMap<AccountId, sync::SyncStatus>,
 }
 
 fn hex_color(color: u32) -> String {
@@ -161,6 +184,8 @@ impl Core {
             utc_offset: utc_offset_seconds,
             undo_seconds: UNDO_SEND_SECONDS,
             cache: Cache::default(),
+            in_flight: HashMap::new(),
+            statuses: HashMap::new(),
         };
         core.reload()?;
         Ok(core)
@@ -407,6 +432,15 @@ impl Core {
                     provider: provider_name(a.kind).to_string(),
                     color: hex_color(a.color),
                     unread_count: count(&mailbox),
+                    status: self
+                        .statuses
+                        .get(&a.id)
+                        .map(sync::SyncStatus::label)
+                        .unwrap_or_default(),
+                    needs_sign_in: matches!(
+                        self.statuses.get(&a.id),
+                        Some(sync::SyncStatus::NeedsSignIn)
+                    ),
                 }
             })
             .collect();
@@ -1138,42 +1172,65 @@ impl Core {
             .collect()
     }
 
-    /// Send everything that is due. Returns how many items were processed.
-    /// The UI calls this on a timer; the sync engine will later call it too.
+    /// Hand everything that is due to the transport, then apply whatever
+    /// results have come back. Returns how many items finished.
+    /// The UI calls this on a timer.
     pub fn process_outbox(&mut self) -> Result<usize> {
         let now = self.now();
-        let due = self.store.due_outbox(now)?;
-        let mut done = 0;
-        let mut sent_any = false;
-        for item in due {
+        for item in self.store.due_outbox(now)? {
+            if self.in_flight.contains_key(&item.id) {
+                continue;
+            }
             let Some(account) = self.account(&item.account_id).cloned() else {
                 self.store.dequeue(item.id)?;
                 continue;
             };
-            let result = match item.kind.as_str() {
-                SEND_KIND => match serde_json::from_str::<SendPayload>(&item.payload) {
-                    Ok(p) => self
-                        .transport
-                        .send(&account, p.raw.as_bytes())
-                        .map(|()| Some(p)),
-                    Err(e) => Err(e.to_string()),
-                },
-                ACTION_KIND => match serde_json::from_str::<RemoteAction>(&item.payload) {
-                    Ok(action) => self.transport.apply(&account, &action).map(|()| None),
-                    Err(e) => Err(e.to_string()),
-                },
-                _ => Ok(None),
+            let work = match item.kind.as_str() {
+                SEND_KIND => serde_json::from_str::<SendPayload>(&item.payload)
+                    .map(|p| Work::Send {
+                        raw: p.raw.into_bytes(),
+                    })
+                    .map_err(|e| e.to_string()),
+                ACTION_KIND => serde_json::from_str::<RemoteAction>(&item.payload)
+                    .map(Work::Apply)
+                    .map_err(|e| e.to_string()),
+                other => Err(format!("unknown outbox kind {other}")),
+            };
+            match work {
+                Ok(work) => {
+                    self.transport.submit(OutboxJob {
+                        id: item.id,
+                        account,
+                        work,
+                    });
+                    self.in_flight.insert(item.id, item);
+                }
+                // A payload we can't read will never succeed; drop it.
+                Err(_) => {
+                    self.store.dequeue(item.id)?;
+                }
+            }
+        }
+
+        let results = self.transport.poll();
+        let finished = results.len();
+        for JobResult { id, result } in results {
+            let Some(item) = self.in_flight.remove(&id) else {
+                continue;
             };
             match result {
-                Ok(sent) => {
-                    self.store.dequeue(item.id)?;
-                    if let Some(p) = sent {
+                Ok(()) => {
+                    self.store.dequeue(id)?;
+                    if item.kind == SEND_KIND
+                        && let Ok(p) = serde_json::from_str::<SendPayload>(&item.payload)
+                    {
                         // Keep a local copy in Sent until the provider's copy syncs.
-                        let sent_folder =
-                            self.store.folder_by_role(&account.id, FolderRole::Sent)?;
+                        let sent_folder = self
+                            .store
+                            .folder_by_role(&item.account_id, FolderRole::Sent)?;
                         self.ingest(&Incoming {
-                            account_id: account.id.clone(),
-                            provider_id: format!("local:{}", item.id),
+                            account_id: item.account_id.clone(),
+                            provider_id: format!("local:{id}"),
                             provider_thread_id: None,
                             raw: p.raw.into_bytes(),
                             folder_ids: sent_folder.into_iter().collect(),
@@ -1183,17 +1240,15 @@ impl Core {
                             },
                             received_at: now,
                         })?;
-                        sent_any = true;
                     }
-                    done += 1;
                 }
-                Err(error) => self.store.outbox_failed(item.id, &error, now)?,
+                Err(error) => self.store.outbox_failed(id, &error, now)?,
             }
         }
-        if sent_any || done > 0 {
+        if finished > 0 {
             self.reload()?;
         }
-        Ok(done)
+        Ok(finished)
     }
 }
 

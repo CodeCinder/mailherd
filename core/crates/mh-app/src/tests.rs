@@ -358,3 +358,219 @@ fn view_models_serialise_for_the_ui() {
     assert_eq!(json["items"][1]["type"], "message");
     assert_eq!(json["items"][1]["delivery"], "received");
 }
+
+mod sync_events {
+    use super::*;
+    use crate::sync::{RemoteFolder, SyncEvent, SyncStatus};
+    use mh_model::ProviderKind;
+
+    fn account() -> Account {
+        Account {
+            id: "g1".into(),
+            kind: ProviderKind::Gmail,
+            email: "me@gmail.example".into(),
+            display_name: "Me".into(),
+            color: 0xea4335,
+        }
+    }
+
+    fn mail(id: &str, from: &str, subject: &str) -> Vec<u8> {
+        format!(
+            "Message-ID: <{id}>\r\nFrom: {from}\r\nTo: me@gmail.example\r\nSubject: {subject}\r\nDate: Mon, 19 Oct 2026 12:00:00 +0000\r\n\r\nHello there.\r\n"
+        )
+        .into_bytes()
+    }
+
+    fn empty_core() -> (Core, Arc<AtomicI64>) {
+        let clock = Arc::new(AtomicI64::new(NOW));
+        let c = Arc::clone(&clock);
+        let core = Core::new(
+            mh_store::Store::open_in_memory().expect("store"),
+            Box::new(crate::demo::DemoTransport::default()),
+            Box::new(move || c.load(Ordering::SeqCst)),
+            0,
+        )
+        .expect("core");
+        (core, clock)
+    }
+
+    fn setup(core: &mut Core) {
+        core.apply_sync(vec![
+            SyncEvent::AccountAdded { account: account() },
+            SyncEvent::Folders {
+                account_id: "g1".into(),
+                folders: vec![
+                    RemoteFolder {
+                        provider_id: "INBOX".into(),
+                        name: "Inbox".into(),
+                        role: Some(FolderRole::Inbox),
+                    },
+                    RemoteFolder {
+                        provider_id: "SENT".into(),
+                        name: "Sent".into(),
+                        role: Some(FolderRole::Sent),
+                    },
+                    RemoteFolder {
+                        provider_id: "__archive".into(),
+                        name: "Archive".into(),
+                        role: Some(FolderRole::Archive),
+                    },
+                ],
+            },
+        ])
+        .expect("applied");
+    }
+
+    fn message_event(provider_id: &str, rfc: &str, folders: &[&str], seen: bool) -> SyncEvent {
+        SyncEvent::Message {
+            account_id: "g1".into(),
+            provider_id: provider_id.into(),
+            provider_thread_id: Some("T1".into()),
+            raw: mail(rfc, "Ada <ada@x.example>", "Plans"),
+            folders: folders.iter().map(|f| f.to_string()).collect(),
+            flags: Flags {
+                seen,
+                ..Flags::default()
+            },
+            received_at: NOW,
+        }
+    }
+
+    #[test]
+    fn synced_messages_appear_in_the_inbox() {
+        let (mut core, _) = empty_core();
+        setup(&mut core);
+        assert!(
+            core.apply_sync(vec![message_event("m1", "1@x", &["INBOX"], false)])
+                .expect("applied")
+        );
+        let rows = core.thread_list(&Mailbox::Inbox);
+        assert_eq!(rows.len(), 1);
+        assert!(rows[0].unread);
+        assert_eq!(rows[0].snippet, "Hello there.");
+    }
+
+    #[test]
+    fn state_changes_update_flags_and_folders() {
+        let (mut core, _) = empty_core();
+        setup(&mut core);
+        core.apply_sync(vec![message_event("m1", "1@x", &["INBOX"], false)])
+            .expect("applied");
+        core.apply_sync(vec![SyncEvent::State {
+            account_id: "g1".into(),
+            provider_id: "m1".into(),
+            flags: Some(Flags {
+                seen: true,
+                ..Flags::default()
+            }),
+            folders: Some(vec!["__archive".into()]),
+        }])
+        .expect("applied");
+        assert!(core.thread_list(&Mailbox::Inbox).is_empty());
+        let done = core.thread_list(&Mailbox::Done);
+        assert_eq!(done.len(), 1);
+        assert!(!done[0].unread);
+    }
+
+    #[test]
+    fn removed_messages_disappear() {
+        let (mut core, _) = empty_core();
+        setup(&mut core);
+        core.apply_sync(vec![message_event("m1", "1@x", &["INBOX"], false)])
+            .expect("applied");
+        core.apply_sync(vec![SyncEvent::Removed {
+            account_id: "g1".into(),
+            provider_id: "m1".into(),
+        }])
+        .expect("applied");
+        assert!(core.thread_list(&Mailbox::Inbox).is_empty());
+    }
+
+    #[test]
+    fn unreadable_messages_are_skipped_without_stopping_the_batch() {
+        let (mut core, _) = empty_core();
+        setup(&mut core);
+        let bad = SyncEvent::Message {
+            account_id: "g1".into(),
+            provider_id: "bad".into(),
+            provider_thread_id: None,
+            raw: Vec::new(),
+            folders: vec!["INBOX".into()],
+            flags: Flags::default(),
+            received_at: NOW,
+        };
+        core.apply_sync(vec![bad, message_event("m1", "1@x", &["INBOX"], false)])
+            .expect("applied");
+        assert_eq!(core.thread_list(&Mailbox::Inbox).len(), 1);
+    }
+
+    #[test]
+    fn the_providers_copy_replaces_the_local_sent_copy() {
+        let (mut core, clock) = empty_core();
+        setup(&mut core);
+        core.apply_sync(vec![message_event("m1", "1@x", &["INBOX"], true)])
+            .expect("applied");
+        let thread = core.thread_list(&Mailbox::Inbox)[0].thread_id.clone();
+        core.send_reply(&thread, "Sounds good").expect("queued");
+        clock.fetch_add(UNDO_SEND_SECONDS, Ordering::SeqCst);
+        assert_eq!(core.process_outbox().expect("processed"), 1);
+        let local = core
+            .store()
+            .all_headers()
+            .expect("headers")
+            .into_iter()
+            .find(|h| h.provider_id.starts_with("local:"))
+            .expect("local copy kept until sync");
+        let rfc = local.rfc_message_id.clone().expect("has id");
+        let mut raw = format!("Message-ID: <{rfc}>\r\nIn-Reply-To: <1@x>\r\nReferences: <1@x>\r\nFrom: Me <me@gmail.example>\r\nTo: ada@x.example\r\nSubject: Re: Plans\r\nDate: Mon, 19 Oct 2026 15:00:10 +0000\r\n\r\nSounds good\r\n").into_bytes();
+        raw.shrink_to_fit();
+        core.apply_sync(vec![SyncEvent::Message {
+            account_id: "g1".into(),
+            provider_id: "m2".into(),
+            provider_thread_id: Some("T1".into()),
+            raw,
+            folders: vec!["SENT".into()],
+            flags: Flags {
+                seen: true,
+                ..Flags::default()
+            },
+            received_at: NOW + 10,
+        }])
+        .expect("applied");
+        let headers = core.store().all_headers().expect("headers");
+        assert!(headers.iter().all(|h| !h.provider_id.starts_with("local:")));
+        assert_eq!(headers.len(), 2);
+    }
+
+    #[test]
+    fn status_shows_in_the_sidebar() {
+        let (mut core, _) = empty_core();
+        setup(&mut core);
+        core.apply_sync(vec![SyncEvent::Status {
+            account_id: "g1".into(),
+            status: SyncStatus::Syncing {
+                done: 120,
+                total: Some(500),
+            },
+        }])
+        .expect("applied");
+        assert_eq!(core.sidebar().accounts[0].status, "Syncing 120 of 500");
+        core.apply_sync(vec![SyncEvent::Status {
+            account_id: "g1".into(),
+            status: SyncStatus::NeedsSignIn,
+        }])
+        .expect("applied");
+        assert!(core.sidebar().accounts[0].needs_sign_in);
+    }
+
+    #[test]
+    fn removing_an_account_removes_its_mail() {
+        let (mut core, _) = empty_core();
+        setup(&mut core);
+        core.apply_sync(vec![message_event("m1", "1@x", &["INBOX"], false)])
+            .expect("applied");
+        core.remove_account("g1").expect("removed");
+        assert!(core.accounts().is_empty());
+        assert!(core.thread_list(&Mailbox::Inbox).is_empty());
+    }
+}

@@ -26,7 +26,7 @@ pub enum StoreError {
 pub type Result<T> = std::result::Result<T, StoreError>;
 
 /// Standard folder roles, so the core can find "the inbox" in any provider.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum FolderRole {
     Inbox,
     Sent,
@@ -409,6 +409,62 @@ impl Store {
         ))?;
         let rows = stmt.query_map([], header_from_row)?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
+    }
+
+    pub fn remove_account(&self, account_id: &str) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM accounts WHERE id = ?1", [account_id])?;
+        Ok(())
+    }
+
+    pub fn folder_id(&self, account_id: &str, provider_id: &str) -> Result<Option<i64>> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT id FROM folders WHERE account_id = ?1 AND provider_id = ?2",
+                params![account_id, provider_id],
+                |r| r.get(0),
+            )
+            .optional()?)
+    }
+
+    pub fn message_id(&self, account_id: &str, provider_id: &str) -> Result<Option<MessageId>> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT id FROM messages WHERE account_id = ?1 AND provider_id = ?2",
+                params![account_id, provider_id],
+                |r| r.get(0),
+            )
+            .optional()?)
+    }
+
+    /// Replace the folders (or Gmail labels) a message is in.
+    pub fn set_message_folders(&mut self, id: MessageId, folder_ids: &[i64]) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        tx.execute("DELETE FROM message_folders WHERE message_id = ?1", [id])?;
+        for folder in folder_ids {
+            tx.execute(
+                "INSERT OR IGNORE INTO message_folders (message_id, folder_id) VALUES (?1, ?2)",
+                params![id, folder],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn delete_message(&self, id: MessageId) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM messages WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    /// Remove the local copies kept for sent messages once the provider's copy has arrived.
+    pub fn delete_local_copies(&self, account_id: &str, rfc_message_id: &str) -> Result<usize> {
+        Ok(self.conn.execute(
+            "DELETE FROM messages WHERE account_id = ?1 AND rfc_message_id = ?2 AND provider_id LIKE 'local:%'",
+            params![account_id, rfc_message_id],
+        )?)
     }
 
     /// Folder roles of every message that is in at least one role folder.

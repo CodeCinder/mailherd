@@ -5,28 +5,30 @@
 use mh_model::{Account, Flags, ProviderKind, Timestamp};
 use mh_store::{FolderRole, Store};
 
-use crate::{Core, Incoming, RemoteAction, Result, Transport};
+use crate::{Core, Incoming, JobResult, OutboxJob, RemoteAction, Result, Transport, Work};
 
-/// Pretends to send: messages "go out" instantly and actions always succeed.
+/// Pretends to send: every job succeeds as soon as it is submitted.
 #[derive(Debug, Default)]
 pub struct DemoTransport {
     pub sent: Vec<Vec<u8>>,
     pub actions: Vec<RemoteAction>,
+    done: Vec<JobResult>,
 }
 
 impl Transport for DemoTransport {
-    fn send(&mut self, _account: &Account, raw: &[u8]) -> std::result::Result<(), String> {
-        self.sent.push(raw.to_vec());
-        Ok(())
+    fn submit(&mut self, job: OutboxJob) {
+        match job.work {
+            Work::Send { raw } => self.sent.push(raw),
+            Work::Apply(action) => self.actions.push(action),
+        }
+        self.done.push(JobResult {
+            id: job.id,
+            result: Ok(()),
+        });
     }
 
-    fn apply(
-        &mut self,
-        _account: &Account,
-        action: &RemoteAction,
-    ) -> std::result::Result<(), String> {
-        self.actions.push(action.clone());
-        Ok(())
+    fn poll(&mut self) -> Vec<JobResult> {
+        std::mem::take(&mut self.done)
     }
 }
 

@@ -16,8 +16,20 @@ mh-chat = { path = "crates/mh-chat" }
 mh-thread = { path = "crates/mh-thread" }
 mh-store = { path = "crates/mh-store" }
 mh-app = { path = "crates/mh-app" }
+mh-auth = { path = "crates/mh-auth" }
+mh-provider-gmail = { path = "crates/mh-provider-gmail" }
+mh-provider-graph = { path = "crates/mh-provider-graph" }
+mh-provider-imap = { path = "crates/mh-provider-imap" }
+mh-sync = { path = "crates/mh-sync" }
 
 ammonia = "4.2"
+base64 = "0.23"
+getrandom = "0.4"
+imap = { version = "3.0.0-alpha.15", default-features = false, features = ["rustls-tls"] }
+keyring = "4"
+lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "rustls-tls", "builder"] }
+sha2 = "0.11"
+ureq = { version = "3", features = ["json"] }
 html2text = "0.17"
 mail-builder = "1.0"
 mail-parser = "0.11"
