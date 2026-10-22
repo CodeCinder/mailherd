@@ -95,6 +95,16 @@ pub mod qobject {
         #[cxx_name = "startupError"]
         fn startup_error(&self) -> QString;
 
+        /// True when the saved mail can't be unlocked and `startFresh` is the way out.
+        #[qinvokable]
+        #[cxx_name = "canStartFresh"]
+        fn can_start_fresh(&self) -> bool;
+
+        /// Delete the mail stored on this computer and open an empty mailbox.
+        #[qinvokable]
+        #[cxx_name = "startFresh"]
+        fn start_fresh(self: Pin<&mut Self>);
+
         /// The account being added, as JSON, or "null".
         #[qinvokable]
         #[cxx_name = "signInJson"]
@@ -167,6 +177,7 @@ pub struct AppControllerRust {
     session: Option<Session>,
     error: String,
     startup_error: String,
+    can_start_fresh: bool,
     utc_offset: i32,
     revision: i32,
     mode: QString,
@@ -180,6 +191,7 @@ impl Default for AppControllerRust {
             session: None,
             error: String::new(),
             startup_error: String::new(),
+            can_start_fresh: false,
             utc_offset: 0,
             revision: 0,
             mode: QString::from("threads"),
@@ -214,12 +226,14 @@ impl AppControllerRust {
             Ok(mut session) => {
                 session.core_mut().set_utc_offset(self.utc_offset);
                 self.startup_error.clear();
+                self.can_start_fresh = false;
                 let demo = session.is_demo();
                 self.session = Some(session);
                 demo
             }
             Err(e) => {
                 self.startup_error = e.to_string();
+                self.can_start_fresh = e.can_start_fresh();
                 false
             }
         }
@@ -371,6 +385,19 @@ impl qobject::AppController {
 
     fn startup_error(&self) -> QString {
         QString::from(self.rust().startup_error.as_str())
+    }
+
+    fn can_start_fresh(&self) -> bool {
+        self.rust().can_start_fresh
+    }
+
+    fn start_fresh(self: Pin<&mut Self>) {
+        let offset = self.rust().utc_offset;
+        let opened = match mh_sync::default_data_dir() {
+            Some(dir) => Session::start_fresh(&dir).and_then(|()| Session::open(&dir, offset)),
+            None => Err(std::io::Error::other("there is no home folder").into()),
+        };
+        self.switch_session(opened);
     }
 
     fn sign_in_json(&self) -> QString {

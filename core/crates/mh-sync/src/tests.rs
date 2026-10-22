@@ -727,4 +727,102 @@ mod session {
         assert!(dir.is_absolute());
         assert!(dir.ends_with("mailherd") || dir.ends_with("MailHerd"));
     }
+
+    /// A data folder of its own, removed afterwards.
+    struct TempDir(std::path::PathBuf);
+
+    impl TempDir {
+        fn new(name: &str) -> Self {
+            let dir =
+                std::env::temp_dir().join(format!("mh-session-{name}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            Self(dir)
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    /// A connector whose keychain the test can reach into.
+    fn keychain() -> (Arc<MemoryStore>, Arc<dyn Connector>) {
+        let secrets = Arc::new(MemoryStore::default());
+        let connector = Arc::new(Fake {
+            script: Arc::new(Mutex::new(Script::default())),
+            vault: Vault::new(Arc::clone(&secrets) as Arc<dyn mh_auth::SecretStore>),
+        });
+        (secrets, connector)
+    }
+
+    fn open(dir: &TempDir, connector: &Arc<dyn Connector>) -> Result<Session, crate::SessionError> {
+        Session::open_with(&dir.0, Arc::clone(connector), fast(), 0)
+    }
+
+    fn with_one_account(dir: &TempDir, connector: &Arc<dyn Connector>) {
+        let mut session = open(dir, connector).expect("first open");
+        session
+            .core_mut()
+            .add_account(&account("a", ProviderKind::Gmail))
+            .expect("account");
+    }
+
+    #[test]
+    fn saved_mail_opens_again_with_the_saved_key() {
+        let dir = TempDir::new("reopen");
+        let (_, connector) = keychain();
+        with_one_account(&dir, &connector);
+        let session = open(&dir, &connector).expect("second open");
+        assert_eq!(session.core().accounts().len(), 1);
+    }
+
+    #[test]
+    fn a_missing_key_is_reported_and_never_replaced() {
+        let dir = TempDir::new("missing");
+        let (secrets, connector) = keychain();
+        with_one_account(&dir, &connector);
+        mh_auth::SecretStore::delete(&*secrets, "database-key").expect("lost");
+
+        let err = open(&dir, &connector).err().expect("can't open");
+        assert!(matches!(err, crate::SessionError::KeyMissing), "{err}");
+        assert!(err.can_start_fresh());
+        assert_eq!(
+            mh_auth::SecretStore::get(&*secrets, "database-key").expect("get"),
+            None,
+            "no new key was saved over the missing one"
+        );
+    }
+
+    #[test]
+    fn a_wrong_key_is_reported() {
+        let dir = TempDir::new("wrong");
+        let (secrets, connector) = keychain();
+        with_one_account(&dir, &connector);
+        connector.vault().new_database_key().expect("replaced");
+
+        let err = open(&dir, &connector).err().expect("can't open");
+        assert!(matches!(err, crate::SessionError::WrongKey), "{err}");
+        assert!(
+            mh_auth::SecretStore::get(&*secrets, "database-key")
+                .expect("get")
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn starting_fresh_gives_an_empty_mailbox() {
+        let dir = TempDir::new("fresh");
+        let (secrets, connector) = keychain();
+        with_one_account(&dir, &connector);
+        mh_auth::SecretStore::delete(&*secrets, "database-key").expect("lost");
+        assert!(open(&dir, &connector).is_err());
+
+        Session::start_fresh(&dir.0).expect("cleared");
+        let session = open(&dir, &connector).expect("opens empty");
+        assert!(session.core().accounts().is_empty());
+        drop(session);
+        let again = open(&dir, &connector).expect("and keeps working");
+        assert!(again.core().accounts().is_empty());
+    }
 }

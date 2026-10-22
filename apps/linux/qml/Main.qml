@@ -105,6 +105,8 @@ ApplicationWindow {
         theme: theme
         signIn: window.signIn
         startupError: window.startupError
+        canStartFresh: { app.revision; return app.canStartFresh() }
+        onStartFreshRequested: app.startFresh()
         onStart: function (provider, email, password) { window.startSignIn(provider, email, password) }
         onDismiss: app.dismissSignIn()
         onDemoRequested: app.useDemo()

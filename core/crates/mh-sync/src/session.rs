@@ -22,6 +22,50 @@ pub enum SessionError {
     Core(#[from] mh_app::CoreError),
     #[error("MailHerd couldn't create its data folder: {0}")]
     Io(#[from] std::io::Error),
+    /// Mail is stored on this computer, but its key is gone from the keychain.
+    #[error("The key that unlocks MailHerd's saved mail is missing from the system keychain.")]
+    KeyMissing,
+    /// The keychain has a key, but not the one the saved mail was locked with.
+    #[error("The key in the system keychain doesn't unlock MailHerd's saved mail.")]
+    WrongKey,
+}
+
+impl SessionError {
+    /// The saved mail can't be unlocked, so the way forward is
+    /// [`Session::start_fresh`]. Everything in it is also on the servers.
+    pub fn can_start_fresh(&self) -> bool {
+        matches!(self, SessionError::KeyMissing | SessionError::WrongKey)
+    }
+}
+
+const DB_FILE: &str = "mailherd.db";
+
+/// The database file and the files SQLite keeps beside it.
+fn db_files(data_dir: &Path) -> [PathBuf; 3] {
+    [
+        data_dir.join(DB_FILE),
+        data_dir.join(format!("{DB_FILE}-wal")),
+        data_dir.join(format!("{DB_FILE}-shm")),
+    ]
+}
+
+/// The key for the database at `db`. If mail is already stored there only
+/// the saved key will do: a new key could never open it, and saving one
+/// would replace the right key if the keychain was only briefly unavailable.
+fn database_key(vault: &Vault, db: &Path) -> Result<[u8; 32], SessionError> {
+    let saved = vault.saved_database_key();
+    if db.exists() {
+        return match saved {
+            Ok(Some(key)) => Ok(key),
+            Ok(None) | Err(VaultError::Corrupt) => Err(SessionError::KeyMissing),
+            Err(e) => Err(e.into()),
+        };
+    }
+    match saved {
+        Ok(Some(key)) => Ok(key),
+        Ok(None) | Err(VaultError::Corrupt) => Ok(vault.new_database_key()?),
+        Err(e) => Err(e.into()),
+    }
 }
 
 fn now() -> i64 {
@@ -60,21 +104,47 @@ impl Session {
     /// The everyday app: mail kept in `data_dir`, encrypted with a key held
     /// in the system keychain, and every account syncing.
     pub fn open(data_dir: &Path, utc_offset: i32) -> Result<Self, SessionError> {
-        let vault = Vault::keychain();
-        let key = vault.database_key()?;
+        Self::open_with(
+            data_dir,
+            Arc::new(Live::new(Vault::keychain())),
+            Timing::default(),
+            utc_offset,
+        )
+    }
+
+    /// [`Session::open`] with any connector; its vault holds the database key.
+    pub fn open_with(
+        data_dir: &Path,
+        connector: Arc<dyn Connector>,
+        timing: Timing,
+        utc_offset: i32,
+    ) -> Result<Self, SessionError> {
         std::fs::create_dir_all(data_dir)?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(data_dir, std::fs::Permissions::from_mode(0o700))?;
         }
-        let store = Store::open(&data_dir.join("mailherd.db"), &key)?;
-        Self::start(
-            store,
-            Arc::new(Live::new(vault)),
-            Timing::default(),
-            utc_offset,
-        )
+        let db = data_dir.join(DB_FILE);
+        let key = database_key(connector.vault(), &db)?;
+        let store = match Store::open(&db, &key) {
+            Err(StoreError::BadKey) => return Err(SessionError::WrongKey),
+            other => other?,
+        };
+        Self::start(store, connector, timing, utc_offset)
+    }
+
+    /// Delete the mail stored in `data_dir` so the next [`Session::open`]
+    /// starts empty. For when the saved mail can't be unlocked; the mail
+    /// itself is still on the servers and downloads again.
+    pub fn start_fresh(data_dir: &Path) -> Result<(), SessionError> {
+        for file in db_files(data_dir) {
+            match std::fs::remove_file(&file) {
+                Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.into()),
+                _ => {}
+            }
+        }
+        Ok(())
     }
 
     /// Real accounts, but nothing saved: mail stays in memory and sign-ins

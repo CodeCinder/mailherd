@@ -10,11 +10,14 @@ Rectangle {
     property var signIn: null
     // Set when MailHerd couldn't open its database (usually the keychain).
     property string startupError: ""
+    // The saved mail can't be unlocked; starting fresh is the way out.
+    property bool canStartFresh: false
 
     signal start(string provider, string email, string password)
     signal dismiss()
     signal demoRequested()
     signal retryRequested()
+    signal startFreshRequested()
 
     color: theme.sidebar
 
@@ -69,15 +72,28 @@ Rectangle {
                         wrapMode: Text.WordWrap
                         color: welcome.theme.text
                         font.pointSize: welcome.theme.base
-                        text: welcome.startupError + "\n\n"
-                            + qsTr("MailHerd keeps its passwords in the system keychain (GNOME Keyring "
-                            + "or KWallet). Make sure it's installed and unlocked, then try again.")
+                        text: welcome.startupError + "\n\n" + (welcome.canStartFresh
+                            ? qsTr("Your mail is safe on the servers. Start fresh deletes MailHerd's copy "
+                                + "on this computer; then add your accounts again and your mail downloads "
+                                + "again. Replies still waiting to be sent are lost.")
+                            : qsTr("MailHerd keeps its passwords in the system keychain (KDE Wallet on "
+                                + "Kubuntu, GNOME Keyring on Ubuntu). Make sure it's turned on and "
+                                + "unlocked, then try again."))
                     }
                 }
-                Button {
+                RowLayout {
                     visible: welcome.startupError !== ""
-                    text: qsTr("Try again")
-                    onClicked: welcome.retryRequested()
+                    Layout.fillWidth: true
+                    Button {
+                        text: qsTr("Try again")
+                        onClicked: welcome.retryRequested()
+                    }
+                    Item { Layout.fillWidth: true }
+                    Button {
+                        visible: welcome.canStartFresh
+                        text: qsTr("Start fresh")
+                        onClicked: welcome.startFreshRequested()
+                    }
                 }
 
                 AddAccount {

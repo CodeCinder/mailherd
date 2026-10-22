@@ -129,6 +129,9 @@ pub enum VaultError {
     Missing,
     #[error("saved sign-in is unreadable")]
     Corrupt,
+    /// The keychain accepted a secret but gave back something else.
+    #[error("the keychain didn't keep what MailHerd saved")]
+    NotKept,
 }
 
 impl Vault {
@@ -182,16 +185,29 @@ impl Vault {
         Ok(fresh.access_token)
     }
 
-    /// The key that encrypts the local mail database, created on first use.
-    pub fn database_key(&self) -> Result<[u8; 32], VaultError> {
-        if let Some(hex) = self.store.get(DATABASE_KEY)? {
-            return parse_key(&hex).ok_or(VaultError::Corrupt);
+    /// The saved key that encrypts the local mail database, if there is one.
+    /// An entry that is there but unreadable is `Corrupt`.
+    pub fn saved_database_key(&self) -> Result<Option<[u8; 32]>, VaultError> {
+        match self.store.get(DATABASE_KEY)? {
+            Some(hex) => parse_key(&hex).map(Some).ok_or(VaultError::Corrupt),
+            None => Ok(None),
         }
+    }
+
+    /// Make and save a new database key, replacing any saved one. Only for
+    /// a database that doesn't exist yet: a new key can't open old data.
+    /// Reads the key back, so a keychain that drops secrets is caught now
+    /// rather than after a restart.
+    pub fn new_database_key(&self) -> Result<[u8; 32], VaultError> {
         let mut key = [0u8; 32];
         getrandom::fill(&mut key).map_err(|e| SecretError::Other(e.to_string()))?;
         let hex: String = key.iter().map(|b| format!("{b:02x}")).collect();
         self.store.set(DATABASE_KEY, &hex)?;
-        Ok(key)
+        match self.saved_database_key() {
+            Ok(Some(saved)) if saved == key => Ok(key),
+            Ok(_) | Err(VaultError::Corrupt) => Err(VaultError::NotKept),
+            Err(e) => Err(e),
+        }
     }
 }
 
@@ -229,8 +245,11 @@ mod tests {
         store.delete(key).expect("deleting twice is fine");
 
         let v = Vault::keychain();
-        let first = v.database_key().expect("database key");
-        assert_eq!(v.database_key().expect("database key"), first, "stable");
+        let first = match v.saved_database_key().expect("readable") {
+            Some(key) => key,
+            None => v.new_database_key().expect("database key"),
+        };
+        assert_eq!(v.saved_database_key(), Ok(Some(first)), "stable");
     }
 
     #[test]
@@ -248,12 +267,37 @@ mod tests {
     }
 
     #[test]
-    fn database_key_is_created_once() {
+    fn database_keys_are_saved_and_read_back() {
         let v = vault();
-        let k1 = v.database_key().expect("key");
-        let k2 = v.database_key().expect("key");
-        assert_eq!(k1, k2);
+        assert_eq!(v.saved_database_key(), Ok(None));
+        let k1 = v.new_database_key().expect("key");
         assert_ne!(k1, [0u8; 32]);
+        assert_eq!(v.saved_database_key(), Ok(Some(k1)));
+        let k2 = v.new_database_key().expect("key");
+        assert_ne!(k1, k2, "a new key replaces the old one");
+        assert_eq!(v.saved_database_key(), Ok(Some(k2)));
+    }
+
+    /// Accepts writes, then forgets them, like a wallet that never saved.
+    struct Forgetful;
+
+    impl SecretStore for Forgetful {
+        fn get(&self, _: &str) -> Result<Option<String>, SecretError> {
+            Ok(Some(String::new()))
+        }
+        fn set(&self, _: &str, _: &str) -> Result<(), SecretError> {
+            Ok(())
+        }
+        fn delete(&self, _: &str) -> Result<(), SecretError> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_keychain_that_loses_secrets_is_caught() {
+        let v = Vault::new(Arc::new(Forgetful));
+        assert_eq!(v.new_database_key(), Err(VaultError::NotKept));
+        assert_eq!(v.saved_database_key(), Err(VaultError::Corrupt));
     }
 
     #[test]

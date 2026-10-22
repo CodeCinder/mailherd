@@ -29,6 +29,7 @@ pub(crate) fn vault_error(e: VaultError) -> ProviderError {
         VaultError::Auth(other) => ProviderError::Retry(other.to_string()),
         // A locked keychain, usually; it may be unlocked later.
         VaultError::Secret(e) => ProviderError::Retry(format!("keychain: {e}")),
+        VaultError::NotKept => ProviderError::Retry(VaultError::NotKept.to_string()),
     }
 }
 

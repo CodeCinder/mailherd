@@ -35,8 +35,13 @@ The first sync brings in the last 90 days of mail, newest first. Each account sh
 status under its name in the sidebar. Right-click an account to check for mail now, sign in
 again or remove it.
 
-Ubuntu keeps MailHerd's sign-ins in its keychain (GNOME Keyring), the same place your Wi-Fi
-passwords live. Your mail is stored in `~/.local/share/mailherd`, encrypted.
+MailHerd keeps its sign-ins in the system keychain: GNOME Keyring on Ubuntu, KDE Wallet on
+Kubuntu. After a restart, KDE Wallet may ask for its password the first time MailHerd opens.
+Your mail is stored in `~/.local/share/mailherd`, encrypted with a key from that keychain.
+
+If MailHerd ever says the key for its saved mail is missing or doesn't match, choose
+**Start fresh**. Your mail is safe on the servers: MailHerd deletes its copy on this computer,
+then you add your accounts again and the mail downloads again.
 
 To look around without your accounts, choose **explore the demo** on the welcome screen.
 
