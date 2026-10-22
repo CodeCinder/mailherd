@@ -4,7 +4,7 @@ Every change pushed to GitHub builds a fresh installable package automatically.
 
 ## Download
 
-1. Open https://github.com/prophetizer/lanternpost/actions and sign in.
+1. Open https://github.com/CodeCinder/mailherd/actions and sign in.
 2. Click the newest run with a green tick.
 3. Scroll to **Artifacts** at the bottom and download **mailherd-deb**.
    **screenshots** shows what that build looks like, if you want to check before installing.

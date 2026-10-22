@@ -6,7 +6,7 @@ edition = "2024"
 license = "LicenseRef-Proprietary"
 publish = false
 authors = ["Michael Guglielmo"]
-homepage = "https://github.com/prophetizer/lanternpost"
+homepage = "https://github.com/CodeCinder/mailherd"
 
 # The Linux app is its own workspace so the core's tests never need Qt.
 [workspace]

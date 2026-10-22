@@ -95,7 +95,7 @@ MailHerd signs in with your **@icloud.com** address, which must have iCloud Mail
 The builds read the Google and Microsoft IDs from GitHub's encrypted secrets, so they are never
 saved in the code.
 
-1. Go to <https://github.com/prophetizer/lanternpost> → **Settings** → **Secrets and variables**
+1. Go to <https://github.com/CodeCinder/mailherd> → **Settings** → **Secrets and variables**
    → **Actions** → **New repository secret**.
 2. Add these four secrets, one at a time. The **Name** must match exactly:
 
