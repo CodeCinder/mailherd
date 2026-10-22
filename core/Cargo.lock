@@ -1292,6 +1292,7 @@ dependencies = [
  "mh-mime",
  "mh-model",
  "mh-store",
+ "rustls-connector",
  "serde",
  "serde_json",
  "time",
@@ -1320,6 +1321,7 @@ dependencies = [
  "mh-provider-imap",
  "mh-store",
  "serde",
+ "thiserror",
  "url",
  "uuid",
 ]

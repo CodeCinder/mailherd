@@ -634,3 +634,97 @@ fn works_end_to_end_with_the_core() {
     assert!(raw.contains("To: Ada <ada@x.example>") || raw.contains("ada@x.example"));
     assert!(raw.contains("Yes!"));
 }
+
+mod session {
+    use super::*;
+    use crate::Session;
+
+    fn fake() -> (Arc<Mutex<Script>>, Arc<dyn Connector>) {
+        let script = Arc::new(Mutex::new(Script {
+            password_ok: true,
+            ..Script::default()
+        }));
+        let connector = Arc::new(Fake {
+            script: Arc::clone(&script),
+            vault: Vault::new(Arc::new(MemoryStore::default())),
+        });
+        (script, connector)
+    }
+
+    fn tick_until(session: &mut Session, what: &str, done: impl Fn(&Session) -> bool) {
+        let start = Instant::now();
+        while !done(session) {
+            session.tick().expect("tick");
+            assert!(
+                start.elapsed() < Duration::from_secs(10),
+                "timed out: {what}"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    #[test]
+    fn saved_accounts_resume_where_they_left_off() {
+        let (script, connector) = fake();
+        let store = Store::open_in_memory().expect("store");
+        store
+            .upsert_account(&account("a", ProviderKind::Gmail))
+            .expect("account");
+        store.set_sync_state("a", "c9").expect("cursor");
+        let mut session = Session::start(store, connector, fast(), 0).expect("session");
+        assert!(!session.is_demo());
+        tick_until(&mut session, "cursor saved", |s| {
+            s.core().store().sync_state("a").ok().flatten().as_deref() == Some("a-1")
+        });
+        assert_eq!(
+            script.lock().expect("lock").cursors[0],
+            ("a".into(), Some("c9".into()))
+        );
+    }
+
+    #[test]
+    fn adding_and_removing_an_account() {
+        let (_, connector) = fake();
+        let mut session = Session::start(
+            Store::open_in_memory().expect("store"),
+            connector,
+            fast(),
+            0,
+        )
+        .expect("session");
+        assert_eq!(
+            session.sign_in(icloud("me@icloud.example")),
+            Some(SignInState::Checking)
+        );
+        tick_until(&mut session, "account added", |s| {
+            !s.core().accounts().is_empty()
+        });
+        assert!(matches!(
+            session.sign_in_state(),
+            Some(SignInState::Done { .. })
+        ));
+        session.dismiss_sign_in();
+        assert_eq!(session.sign_in_state(), None);
+
+        let id = session.core().accounts()[0].id.clone();
+        session.remove_account(&id).expect("removed");
+        assert!(session.core().accounts().is_empty());
+        assert_eq!(session.core().sidebar().accounts.len(), 0);
+    }
+
+    #[test]
+    fn the_demo_stays_offline() {
+        let mut session = Session::demo(0).expect("demo");
+        assert!(session.is_demo());
+        assert!(!session.core().accounts().is_empty());
+        assert_eq!(session.sign_in(NewAccount::Google), None);
+        session.tick().expect("tick");
+    }
+
+    #[test]
+    fn data_lives_in_the_users_data_folder() {
+        let dir = crate::default_data_dir().expect("data dir");
+        assert!(dir.is_absolute());
+        assert!(dir.ends_with("mailherd") || dir.ends_with("MailHerd"));
+    }
+}

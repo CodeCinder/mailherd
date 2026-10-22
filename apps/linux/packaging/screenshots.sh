@@ -1,6 +1,7 @@
 #!/bin/bash
-# Take screenshots of the app in demo mode on a virtual display, so each build
-# can be looked at in the browser before installing it.
+# Take screenshots of the app on a virtual display, so each build can be
+# looked at in the browser before installing it: the demo, then the welcome
+# screen of a throwaway session that saves nothing.
 #
 # usage: xvfb-run -a -s "-screen 0 1240x800x24" packaging/screenshots.sh <binary> <out-dir>
 set -u
@@ -9,7 +10,7 @@ OUT=${2:-screenshots}
 mkdir -p "$OUT"
 export LIBGL_ALWAYS_SOFTWARE=1
 
-"$BIN" > "$OUT/app.log" 2>&1 &
+MAILHERD_DEMO=1 "$BIN" > "$OUT/app.log" 2>&1 &
 PID=$!
 sleep 6
 
@@ -30,6 +31,17 @@ sleep 1
 xdotool mousemove 430 85 click 1
 sleep 1.5
 import -window root "$OUT/4-people.png"
+
+kill "$PID" 2>/dev/null
+wait "$PID" 2>/dev/null
+
+MAILHERD_EPHEMERAL=1 "$BIN" > "$OUT/welcome.log" 2>&1 &
+PID=$!
+sleep 5
+import -window root "$OUT/5-welcome.png"
+xdotool mousemove 620 480 click 1        # iCloud Mail
+sleep 1
+import -window root "$OUT/6-icloud.png"
 
 kill "$PID" 2>/dev/null
 wait "$PID" 2>/dev/null

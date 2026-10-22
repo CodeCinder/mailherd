@@ -17,7 +17,15 @@ jobs:
   core:
     name: Core tests
     runs-on: ubuntu-latest
+    # Root in a container, so the iCloud tests can run a real IMAP server (Dovecot 2.3).
+    container: ubuntu:24.04
     steps:
+      - name: Install build tools, Dovecot and a keychain
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential ca-certificates curl git pkg-config dovecot-imapd \
+            gnome-keyring dbus
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -34,6 +42,11 @@ jobs:
       - name: Test
         working-directory: core
         run: cargo test --workspace
+      - name: Test the system keychain
+        working-directory: core
+        run: |
+          dbus-run-session -- sh -c 'echo -n ci | gnome-keyring-daemon --unlock --components=secrets >/dev/null \
+            && cargo test -p mh-auth real_keychain -- --ignored'
 
   linux:
     name: Linux app (.deb for Ubuntu 26.04)
@@ -56,7 +69,20 @@ jobs:
           workspaces: apps/linux
       - name: Build
         working-directory: apps/linux
-        run: cargo build --release --locked
+        shell: bash
+        # The app registrations are baked into the build. They are not secret
+        # in the app (Google and Microsoft treat desktop apps as public
+        # clients), but are kept out of the repository.
+        env:
+          MH_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          MH_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          MH_MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
+          MH_MS_TENANT_ID: ${{ secrets.MS_TENANT_ID }}
+        run: |
+          for v in MH_GOOGLE_CLIENT_ID MH_GOOGLE_CLIENT_SECRET MH_MS_CLIENT_ID MH_MS_TENANT_ID; do
+            if [ -n "${!v}" ]; then echo "$v is set"; else echo "::warning::$v is missing, so that sign-in won't work in this build"; fi
+          done
+          cargo build --release --locked
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-deb

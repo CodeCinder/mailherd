@@ -11,6 +11,8 @@ fn main() {
         "qml/Bubble.qml",
         "qml/Composer.qml",
         "qml/UndoBar.qml",
+        "qml/AddAccount.qml",
+        "qml/Welcome.qml",
     ]))
     .qt_module("Quick")
     .qt_module("QuickControls2")

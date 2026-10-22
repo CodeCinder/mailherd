@@ -14,12 +14,13 @@ mh-model.workspace = true
 mh-provider-gmail.workspace = true
 mh-provider-graph.workspace = true
 mh-provider-imap.workspace = true
+mh-store.workspace = true
 serde.workspace = true
+thiserror.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
 mh-auth = { workspace = true, features = ["testing"] }
-mh-store.workspace = true
 url.workspace = true
 
 [lints]

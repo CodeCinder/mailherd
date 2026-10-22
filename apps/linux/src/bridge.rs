@@ -82,38 +82,92 @@ pub mod qobject {
         #[cxx_name = "undoSend"]
         fn undo_send(self: Pin<&mut Self>, outbox_id: i32) -> QString;
 
-        /// Called once a second by QML: sends whatever is due.
+        /// Called once a second by QML: brings in synced mail, sends whatever is due.
         #[qinvokable]
         fn tick(self: Pin<&mut Self>);
 
         #[qinvokable]
         #[cxx_name = "lastError"]
         fn last_error(&self) -> QString;
+
+        /// Why MailHerd couldn't open its mail database, or an empty string.
+        #[qinvokable]
+        #[cxx_name = "startupError"]
+        fn startup_error(&self) -> QString;
+
+        /// The account being added, as JSON, or "null".
+        #[qinvokable]
+        #[cxx_name = "signInJson"]
+        fn sign_in_json(&self) -> QString;
+
+        /// `provider` is "google", "microsoft" or "icloud" (which uses the email and password).
+        #[qinvokable]
+        #[cxx_name = "startSignIn"]
+        fn start_sign_in(
+            self: Pin<&mut Self>,
+            provider: &QString,
+            email: &QString,
+            password: &QString,
+        );
+
+        #[qinvokable]
+        #[cxx_name = "dismissSignIn"]
+        fn dismiss_sign_in(self: Pin<&mut Self>);
+
+        #[qinvokable]
+        #[cxx_name = "removeAccount"]
+        fn remove_account(self: Pin<&mut Self>, id: &QString);
+
+        #[qinvokable]
+        #[cxx_name = "syncNow"]
+        fn sync_now(self: Pin<&mut Self>);
+
+        /// Switch to the offline demo.
+        #[qinvokable]
+        #[cxx_name = "useDemo"]
+        fn use_demo(self: Pin<&mut Self>);
+
+        /// Leave the demo (or retry after a startup error) and open the real accounts.
+        #[qinvokable]
+        #[cxx_name = "openAccounts"]
+        fn open_accounts(self: Pin<&mut Self>);
     }
 }
 
 use std::pin::Pin;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
 use mh_app::Core;
 use mh_app::view::Mailbox;
+use mh_sync::{NewAccount, Session, SessionError};
 
-fn now() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| i64::try_from(d.as_secs()).unwrap_or(i64::MAX))
-        .unwrap_or(0)
-}
+const INBOX: &str = r#"{"kind":"inbox"}"#;
 
 fn json<T: serde::Serialize>(value: &T) -> QString {
     QString::from(serde_json::to_string(value).unwrap_or_else(|_| "null".into()).as_str())
 }
 
+fn flag(name: &str) -> bool {
+    std::env::var_os(name).is_some_and(|v| !v.is_empty() && v != "0")
+}
+
+/// The real accounts. `MAILHERD_EPHEMERAL=1` keeps everything in memory
+/// instead, for trying sign-in without saving anything.
+fn open_real(utc_offset: i32) -> Result<Session, SessionError> {
+    if flag("MAILHERD_EPHEMERAL") {
+        return Session::ephemeral(utc_offset);
+    }
+    let dir = mh_sync::default_data_dir()
+        .ok_or_else(|| std::io::Error::other("there is no home folder"))?;
+    Session::open(&dir, utc_offset)
+}
+
 pub struct AppControllerRust {
-    core: Option<Core>,
+    session: Option<Session>,
     error: String,
+    startup_error: String,
+    utc_offset: i32,
     revision: i32,
     mode: QString,
     mailbox: QString,
@@ -122,25 +176,53 @@ pub struct AppControllerRust {
 
 impl Default for AppControllerRust {
     fn default() -> Self {
-        // v0.1 starts in demo mode until account sign-in lands.
-        let (core, error) = match mh_app::demo::demo_core(Box::new(now), 0) {
-            Ok(core) => (Some(core), String::new()),
-            Err(e) => (None, e.to_string()),
-        };
-        Self {
-            core,
-            error,
+        let mut this = Self {
+            session: None,
+            error: String::new(),
+            startup_error: String::new(),
+            utc_offset: 0,
             revision: 0,
             mode: QString::from("threads"),
-            mailbox: QString::from(r#"{"kind":"inbox"}"#),
-            demo: true,
-        }
+            mailbox: QString::from(INBOX),
+            demo: false,
+        };
+        // MAILHERD_DEMO=1 opens straight into the demo (used for screenshots).
+        let opened = if flag("MAILHERD_DEMO") {
+            Session::demo(0)
+        } else {
+            open_real(0)
+        };
+        this.demo = this.replace_session(opened);
+        this
     }
 }
 
 impl AppControllerRust {
     fn current_mailbox(&self) -> Mailbox {
         serde_json::from_str(&self.mailbox.to_string()).unwrap_or(Mailbox::Inbox)
+    }
+
+    fn core(&self) -> Option<&Core> {
+        self.session.as_ref().map(Session::core)
+    }
+
+    /// Swap in a new session. Returns whether it is the demo.
+    fn replace_session(&mut self, opened: Result<Session, SessionError>) -> bool {
+        // Stop the old session's sync before the new one opens the database.
+        self.session = None;
+        match opened {
+            Ok(mut session) => {
+                session.core_mut().set_utc_offset(self.utc_offset);
+                self.startup_error.clear();
+                let demo = session.is_demo();
+                self.session = Some(session);
+                demo
+            }
+            Err(e) => {
+                self.startup_error = e.to_string();
+                false
+            }
+        }
     }
 }
 
@@ -152,15 +234,16 @@ impl qobject::AppController {
 
     /// Run an action on the core, record any error, and refresh the views.
     fn act(mut self: Pin<&mut Self>, f: impl FnOnce(&mut Core) -> mh_app::Result<()>) {
-        let result = match self.as_mut().rust_mut().core.as_mut() {
-            Some(core) => f(core),
+        let result = match self.as_mut().rust_mut().session.as_mut() {
+            Some(session) => f(session.core_mut()),
             None => return,
         };
         self.as_mut().rust_mut().error = result.err().map(|e| e.to_string()).unwrap_or_default();
         self.bump();
     }
 
-    fn set_utc_offset(self: Pin<&mut Self>, seconds: i32) {
+    fn set_utc_offset(mut self: Pin<&mut Self>, seconds: i32) {
+        self.as_mut().rust_mut().utc_offset = seconds;
         self.act(|core| {
             core.set_utc_offset(seconds);
             Ok(())
@@ -168,14 +251,14 @@ impl qobject::AppController {
     }
 
     fn sidebar_json(&self) -> QString {
-        match &self.rust().core {
+        match self.rust().core() {
             Some(core) => json(&core.sidebar()),
             None => QString::from("null"),
         }
     }
 
     fn list_json(&self) -> QString {
-        let Some(core) = &self.rust().core else {
+        let Some(core) = self.rust().core() else {
             return QString::from("[]");
         };
         let mailbox = self.rust().current_mailbox();
@@ -188,7 +271,7 @@ impl qobject::AppController {
 
     fn conversation_json(&self, id: &QString) -> QString {
         let id = id.to_string();
-        let Some(core) = &self.rust().core else {
+        let Some(core) = self.rust().core() else {
             return QString::from("null");
         };
         let conversation = match id.strip_prefix("people:") {
@@ -199,12 +282,12 @@ impl qobject::AppController {
     }
 
     fn message_html(&self, id: i64) -> QString {
-        let html = self.rust().core.as_ref().and_then(|core| core.message_html(id));
+        let html = self.rust().core().and_then(|core| core.message_html(id));
         QString::from(html.unwrap_or_default().as_str())
     }
 
     fn pending_json(&self) -> QString {
-        match &self.rust().core {
+        match self.rust().core() {
             Some(core) => json(&core.pending_sends()),
             None => QString::from("[]"),
         }
@@ -268,13 +351,13 @@ impl qobject::AppController {
     }
 
     fn tick(mut self: Pin<&mut Self>) {
-        let processed = match self.as_mut().rust_mut().core.as_mut() {
-            Some(core) => core.process_outbox(),
+        let changed = match self.as_mut().rust_mut().session.as_mut() {
+            Some(session) => session.tick(),
             None => return,
         };
-        match processed {
-            Ok(0) => {}
-            Ok(_) => self.bump(),
+        match changed {
+            Ok(false) => {}
+            Ok(true) => self.bump(),
             Err(e) => {
                 self.as_mut().rust_mut().error = e.to_string();
                 self.bump();
@@ -284,5 +367,77 @@ impl qobject::AppController {
 
     fn last_error(&self) -> QString {
         QString::from(self.rust().error.as_str())
+    }
+
+    fn startup_error(&self) -> QString {
+        QString::from(self.rust().startup_error.as_str())
+    }
+
+    fn sign_in_json(&self) -> QString {
+        match self.rust().session.as_ref().and_then(Session::sign_in_state) {
+            Some(state) => json(state),
+            None => QString::from("null"),
+        }
+    }
+
+    fn start_sign_in(
+        mut self: Pin<&mut Self>,
+        provider: &QString,
+        email: &QString,
+        password: &QString,
+    ) {
+        let request = match provider.to_string().as_str() {
+            "google" => NewAccount::Google,
+            "microsoft" => NewAccount::Microsoft,
+            _ => NewAccount::ICloud {
+                email: email.to_string(),
+                password: password.to_string(),
+            },
+        };
+        if let Some(session) = self.as_mut().rust_mut().session.as_mut() {
+            session.sign_in(request);
+        }
+        self.bump();
+    }
+
+    fn dismiss_sign_in(mut self: Pin<&mut Self>) {
+        if let Some(session) = self.as_mut().rust_mut().session.as_mut() {
+            session.dismiss_sign_in();
+        }
+        self.bump();
+    }
+
+    fn remove_account(mut self: Pin<&mut Self>, id: &QString) {
+        let id = id.to_string();
+        let result = match self.as_mut().rust_mut().session.as_mut() {
+            Some(session) => session.remove_account(&id),
+            None => return,
+        };
+        self.as_mut().rust_mut().error = result.err().map(|e| e.to_string()).unwrap_or_default();
+        self.as_mut().set_mailbox(QString::from(INBOX));
+        self.bump();
+    }
+
+    fn sync_now(self: Pin<&mut Self>) {
+        if let Some(session) = self.rust().session.as_ref() {
+            session.sync_now();
+        }
+    }
+
+    fn use_demo(self: Pin<&mut Self>) {
+        let offset = self.rust().utc_offset;
+        self.switch_session(Session::demo(offset));
+    }
+
+    fn open_accounts(self: Pin<&mut Self>) {
+        let offset = self.rust().utc_offset;
+        self.switch_session(open_real(offset));
+    }
+
+    fn switch_session(mut self: Pin<&mut Self>, opened: Result<Session, SessionError>) {
+        let demo = self.as_mut().rust_mut().replace_session(opened);
+        self.as_mut().set_demo(demo);
+        self.as_mut().set_mailbox(QString::from(INBOX));
+        self.bump();
     }
 }

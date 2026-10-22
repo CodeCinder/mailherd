@@ -8,9 +8,10 @@
 //!   (which may contain any character) comes last.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::net::{TcpStream, ToSocketAddrs};
+use std::time::Duration;
 
 use imap::types::{Fetch, Flag};
-use imap::{ClientBuilder, ConnectionMode, TlsKind};
 use imap_proto::NameAttribute;
 use lettre::Transport;
 use lettre::address::Envelope;
@@ -135,6 +136,27 @@ fn flags_of(fetch: &Fetch<'_>) -> Flags {
     }
 }
 
+/// How long to wait for the server to accept a connection.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
+/// How long any one read or write may stall before the connection is given up.
+const IO_TIMEOUT: Duration = Duration::from_secs(90);
+
+/// A TCP connection that can't hang forever on a bad network.
+fn connect_tcp(host: &str, port: u16) -> std::io::Result<TcpStream> {
+    let mut last = None;
+    for addr in (host, port).to_socket_addrs()? {
+        match TcpStream::connect_timeout(&addr, CONNECT_TIMEOUT) {
+            Ok(tcp) => {
+                tcp.set_read_timeout(Some(IO_TIMEOUT))?;
+                tcp.set_write_timeout(Some(IO_TIMEOUT))?;
+                return Ok(tcp);
+            }
+            Err(e) => last = Some(e),
+        }
+    }
+    Err(last.unwrap_or_else(|| std::io::Error::other("no address for the server")))
+}
+
 pub fn provider_id(uidvalidity: u32, uid: u32, folder: &str) -> String {
     format!("{uidvalidity}:{uid}:{folder}")
 }
@@ -181,16 +203,23 @@ impl Imap {
     }
 
     fn connect(config: &ImapConfig) -> Result<Session, ProviderError> {
-        let mode = if config.tls {
-            ConnectionMode::AutoTls
-        } else {
-            ConnectionMode::Plaintext
+        let unreachable = |e: &dyn std::fmt::Display| {
+            ProviderError::Retry(format!("can't reach {}: {e}", config.imap_host))
         };
-        let client = ClientBuilder::new(config.imap_host.as_str(), config.imap_port)
-            .mode(mode)
-            .tls_kind(TlsKind::Rust)
-            .connect()
-            .map_err(|e| ProviderError::Retry(format!("can't reach {}: {e}", config.imap_host)))?;
+        let tcp = connect_tcp(&config.imap_host, config.imap_port).map_err(|e| unreachable(&e))?;
+        let stream: imap::Connection = if config.tls {
+            // Implicit TLS (port 993), as iCloud uses.
+            let tls = rustls_connector::RustlsConnector::new_with_native_certs()
+                .map_err(|e| unreachable(&e))?;
+            Box::new(
+                tls.connect(&config.imap_host, tcp)
+                    .map_err(|e| unreachable(&e))?,
+            )
+        } else {
+            Box::new(tcp)
+        };
+        let mut client = imap::Client::new(stream);
+        client.read_greeting().map_err(|e| unreachable(&e))?;
         client
             .login(&config.username, &config.password)
             .map_err(|(e, _)| match e {

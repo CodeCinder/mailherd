@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use super::*;
+use imap::{ClientBuilder, ConnectionMode};
 
 struct Dovecot {
     child: Child,
@@ -386,4 +387,24 @@ fn a_wrong_password_asks_for_sign_in() {
     cfg.password = "wrong".into();
     assert_eq!(Imap::check_login(&cfg), Err(ProviderError::NeedsSignIn));
     assert_eq!(Imap::check_login(&config(&server, 0)), Ok(()));
+}
+
+#[test]
+fn an_unreachable_server_is_a_temporary_problem() {
+    let port = free_port(); // nothing listens here
+    let config = ImapConfig {
+        imap_host: "127.0.0.1".into(),
+        imap_port: port,
+        smtp_host: "127.0.0.1".into(),
+        smtp_port: port,
+        tls: false,
+        username: "x".into(),
+        password: "y".into(),
+    };
+    let started = Instant::now();
+    assert!(matches!(
+        Imap::check_login(&config),
+        Err(ProviderError::Retry(_))
+    ));
+    assert!(started.elapsed() < Duration::from_secs(5));
 }

@@ -11,10 +11,12 @@
 //! background and reports progress as a [`SignInState`].
 
 mod live;
+mod session;
 mod signin;
 mod worker;
 
 pub use live::Live;
+pub use session::{Session, SessionError, default_data_dir};
 pub use signin::{NewAccount, SignInState};
 
 use std::collections::HashMap;

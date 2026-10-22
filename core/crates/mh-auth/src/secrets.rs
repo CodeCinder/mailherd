@@ -215,6 +215,24 @@ mod tests {
         Vault::new(Arc::new(MemoryStore::default()))
     }
 
+    /// Needs a running Secret Service (GNOME Keyring). CI runs it with
+    /// `dbus-run-session` and an unlocked keyring.
+    #[test]
+    #[ignore = "needs a system keychain"]
+    fn real_keychain_round_trip() {
+        let store = KeyringStore;
+        let key = "test:round-trip";
+        store.set(key, "hello").expect("set");
+        assert_eq!(store.get(key).expect("get").as_deref(), Some("hello"));
+        store.delete(key).expect("delete");
+        assert_eq!(store.get(key).expect("get"), None);
+        store.delete(key).expect("deleting twice is fine");
+
+        let v = Vault::keychain();
+        let first = v.database_key().expect("database key");
+        assert_eq!(v.database_key().expect("database key"), first, "stable");
+    }
+
     #[test]
     fn credentials_round_trip() {
         let v = vault();

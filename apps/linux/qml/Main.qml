@@ -27,6 +27,30 @@ ApplicationWindow {
         return selectedId !== "" ? JSON.parse(app.conversationJson(selectedId)) : null
     }
     readonly property var pending: { app.revision; return JSON.parse(app.pendingJson()) }
+    readonly property var signIn: { app.revision; return JSON.parse(app.signInJson()) }
+    readonly property string startupError: { app.revision; return app.startupError() }
+
+    // No accounts yet (or MailHerd couldn't start): show the welcome screen.
+    readonly property bool welcome: !app.demo
+        && (startupError !== "" || (sidebarModel !== null && sidebarModel.accounts.length === 0))
+
+    // When the first account is added from the welcome screen, carry on in the
+    // Add account window so the user sees it worked and can add the others.
+    onWelcomeChanged: if (!welcome && signIn !== null) addWindow.open()
+
+    function startSignIn(provider, email, password) {
+        app.startSignIn(provider, email, password)
+    }
+
+    function signInAgain(account) {
+        if (account.provider === "iCloud") {
+            addWindow.open()
+            addAccount.showICloud(account.email)
+        } else {
+            app.startSignIn(account.provider === "Gmail" ? "google" : "microsoft", "", "")
+            addWindow.open()
+        }
+    }
 
     readonly property string mailboxTitle: {
         if (!sidebarModel)
@@ -75,7 +99,20 @@ ApplicationWindow {
     Shortcut { sequence: "?"; enabled: !window.typing; onActivated: help.open() }
     Shortcut { sequence: "Esc"; onActivated: conversationPane.composer.clearFocus() }
 
+    Welcome {
+        visible: window.welcome
+        anchors.fill: parent
+        theme: theme
+        signIn: window.signIn
+        startupError: window.startupError
+        onStart: function (provider, email, password) { window.startSignIn(provider, email, password) }
+        onDismiss: app.dismissSignIn()
+        onDemoRequested: app.useDemo()
+        onRetryRequested: app.openAccounts()
+    }
+
     RowLayout {
+        visible: !window.welcome
         anchors.fill: parent
         spacing: 0
 
@@ -89,6 +126,14 @@ ApplicationWindow {
             onMailboxSelected: function (json) {
                 app.selectMailbox(json)
                 window.selectedId = ""
+            }
+            onAddAccountRequested: addWindow.open()
+            onLeaveDemoRequested: { window.selectedId = ""; app.openAccounts() }
+            onSyncRequested: app.syncNow()
+            onSignInAgainRequested: function (account) { window.signInAgain(account) }
+            onRemoveRequested: function (account) {
+                removeDialog.account = account
+                removeDialog.open()
             }
         }
 
@@ -134,6 +179,73 @@ ApplicationWindow {
                     conversationPane.composer.focusInput()
                 }
             }
+        }
+    }
+
+    Popup {
+        id: addWindow
+        modal: true
+        anchors.centerIn: Overlay.overlay
+        width: Math.min(460, window.width - 48)
+        padding: 24
+        closePolicy: Popup.CloseOnEscape
+        background: Rectangle { radius: 16; color: theme.card; border.color: theme.border }
+        onClosed: {
+            addAccount.page = "choose"
+            app.dismissSignIn()
+        }
+
+        ColumnLayout {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            spacing: 14
+            RowLayout {
+                Layout.fillWidth: true
+                Text {
+                    text: qsTr("Add an account")
+                    color: theme.text
+                    font.pointSize: theme.title
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+                ToolButton {
+                    text: "✕"
+                    Accessible.name: qsTr("Close")
+                    onClicked: addWindow.close()
+                }
+            }
+            AddAccount {
+                id: addAccount
+                theme: theme
+                signIn: window.signIn
+                Layout.fillWidth: true
+                onStart: function (provider, email, password) { window.startSignIn(provider, email, password) }
+                onDismiss: app.dismissSignIn()
+                onFinished: addWindow.close()
+            }
+        }
+    }
+
+    Dialog {
+        id: removeDialog
+        property var account: null
+        title: qsTr("Remove %1?").arg(account ? account.email : "")
+        modal: true
+        anchors.centerIn: parent
+        width: Math.min(440, window.width - 48)
+        Label {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: qsTr("MailHerd will stop checking this account and delete its mail from this "
+                + "computer. Nothing changes in the account itself — your mail stays online.")
+        }
+        footer: DialogButtonBox {
+            Button { text: qsTr("Cancel"); DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+            Button { text: qsTr("Remove"); DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
+        }
+        onAccepted: {
+            window.selectedId = ""
+            app.removeAccount(account.id)
         }
     }
 

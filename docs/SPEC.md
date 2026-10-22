@@ -1,6 +1,6 @@
 # MailHerd — Architecture & Product Spec
 
-As of 19 Oct 2026. This is a copy of the living spec document; the doc is the source of truth for
+As of 22 Oct 2026. This is a copy of the living spec document; the doc is the source of truth for
 decisions, and this file is updated whenever the doc changes:
 https://claude.ai/code/artifact/6deb31a5-a09b-47ad-9adb-ebe997ab38ce
 
@@ -30,7 +30,7 @@ These are the decisions from the planning interview of 19 Oct 2026.
 | Sync model | Hybrid | Devices sync directly with providers; the backend only handles push, send-later and webhooks |
 | Code structure | Shared Rust core plus native UIs | Chosen after reviewing Rust, .NET, C++, Kotlin Multiplatform and separate apps |
 | Core scope | The core owns view state | UIs render ready-made models and send actions back |
-| Linux UI | Qt 6 / QML, with C++ glue | Rust connected through cxx-qt |
+| Linux UI | Qt 6 / QML, with Rust glue | Connected through cxx-qt. Planned as C++ glue; written in Rust instead so there is one less language to maintain |
 | macOS / iOS UI | SwiftUI | Rust connected through UniFFI |
 | Windows UI | WinUI 3 / C# | Rust connected through uniffi-bindgen-cs |
 | Android UI | Kotlin / Jetpack Compose | Rust connected through UniFFI |
@@ -77,7 +77,7 @@ Four native apps sit on one shared Rust core. The core talks to each mail provid
 ```
  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
  │ Linux (v0.1) │  │ macOS · iOS  │  │   Windows    │  │   Android    │
- │ Qt 6/QML+C++ │  │   SwiftUI    │  │ WinUI 3 / C# │  │Kotlin/Compose│
+ │ Qt 6/QML+Rust│  │   SwiftUI    │  │ WinUI 3 / C# │  │Kotlin/Compose│
  └──────▲───────┘  └──────▲───────┘  └──────▲───────┘  └──────▲───────┘
      cxx-qt            UniFFI      uniffi-bindgen-cs       UniFFI
  ┌──────▼─────────────────▼─────────────────▼─────────────────▼───────┐
@@ -106,7 +106,7 @@ Each provider is reached through its best-supported interface, behind one common
 | Sending | SMTP (submission, port 587) | Gmail API `messages.send` | Graph `sendMail` / draft send |
 | Sign-in | App-specific password | OAuth 2.0 with PKCE (installed-app flow) | OAuth 2.0 with PKCE (Entra ID public client) |
 | Incremental sync | MODSEQ / QRESYNC | `history.list` from a historyId | Delta queries per folder |
-| Real-time, desktop | IMAP IDLE from the app | Polling `history.list` about every 30 s, or Pub/Sub through the backend | Delta polling, or webhooks through the backend |
+| Real-time, desktop | IMAP IDLE from the app (v0.1 polls every 2 min) | Polling `history.list` (every 60 s in v0.1), or Pub/Sub through the backend | Delta polling (every 60 s in v0.1), or webhooks through the backend |
 | Real-time, mobile | Backend IMAP IDLE → APNs/FCM | Pub/Sub → backend → APNs/FCM | Graph webhooks → backend → APNs/FCM |
 | Thread ID | Computed from headers (JWZ algorithm) | Native `threadId` | Native `conversationId` |
 | Labels / folders | Folders | Labels | Folders plus categories |
@@ -135,11 +135,11 @@ The Rust core (`mailherd-core`) is a library that every app embeds. UIs call it 
 | `mh-store` | Encrypted SQLite store, schema migrations, blob cache for bodies and attachments | rusqlite + SQLCipher |
 | `mh-search` | Full-text index with operators (`from:`, `has:attachment`, `before:`) and server fallback for older mail | tantivy |
 | `mh-mime` | Parse and build MIME, decode charsets, sanitise HTML, strip trackers | mail-parser, mail-builder, ammonia |
-| `mh-provider-imap` | iCloud IMAP and SMTP | async-imap, lettre |
-| `mh-provider-gmail` | Gmail, People, Calendar and Drive REST APIs | reqwest |
-| `mh-provider-graph` | Microsoft Graph mail, contacts, calendar and OneDrive | reqwest |
-| `mh-auth` | OAuth PKCE flows, token refresh, keychain storage | oauth2, keyring |
-| `mh-sync` | Sync engine, offline action queue, conflict handling | tokio |
+| `mh-provider-imap` | iCloud IMAP and SMTP | imap, lettre |
+| `mh-provider-gmail` | Gmail, People, Calendar and Drive REST APIs | ureq |
+| `mh-provider-graph` | Microsoft Graph mail, contacts, calendar and OneDrive | ureq |
+| `mh-auth` | OAuth PKCE flows, token refresh, keychain storage, shared HTTP client | keyring, ureq |
+| `mh-sync` | Sync engine (one worker thread per account), account sign-in, outbox delivery, app startup (`Session`) | std threads |
 | `mh-thread` | Threading, cross-account merge, People grouping | |
 | `mh-chat` | Quote and signature stripping, bubble models | |
 | `mh-classify` | Smart categories and app-side rules | |
@@ -154,6 +154,10 @@ The Rust core (`mailherd-core`) is a library that every app embeds. UIs call it 
 2. Incremental sync uses each provider's change feed (QRESYNC, historyId, delta tokens) and is triggered by IDLE, polling or a push from the backend.
 3. Every user action (archive, label, send) is applied to the local store at once, so the UI updates instantly. It is then queued in `outbox` and replayed against the server with retries. If the server rejects an action, the local change is rolled back and you see a notice.
 4. Conflicts: the server wins for flags and labels; app state uses the latest timestamp.
+
+**As built in v0.1.** Each account has a background worker that owns its provider connection. Workers send changes (new messages, flag and folder changes, removals, sync cursors, status) to the UI thread, which applies them to the store in one place. The first sync fetches the last 90 days (up to 1,000 messages per folder, newest first). Afterwards Gmail and Microsoft 365 are checked every minute and iCloud every two minutes. Errors are retried with a growing delay (30 s up to 10 min). If a provider rejects the saved sign-in, the worker first tries a fresh access token and then shows "Sign in again" next to the account. Sent mail appears in Sent immediately as a local copy, which is replaced when the provider's copy syncs.
+
+**Sign-in as built.** Google and Microsoft use the system browser with a loopback redirect (`http://127.0.0.1:<port>` for Google, `http://localhost:<port>` for Microsoft) and PKCE. iCloud uses the address and an app-specific password, checked by logging in to IMAP. Tokens and passwords go to the system keychain (Secret Service on Linux). The mail database is encrypted with a random key that is also kept in the keychain. The app registrations are baked into release builds from GitHub Actions secrets and never committed.
 
 **Threading and merging.** Gmail and Microsoft 365 provide native thread IDs. iCloud threads are computed from `References` and `In-Reply-To` headers, with subject matching as a fallback. Threads from different accounts merge when they share any RFC Message-ID. A message stored in two accounts is shown once, with an indicator of which accounts hold it.
 

@@ -11,8 +11,21 @@ Rectangle {
     property string currentMailbox: ""
     property bool demo: false
     signal mailboxSelected(string mailboxJson)
+    signal addAccountRequested()
+    signal leaveDemoRequested()
+    signal syncRequested()
+    signal signInAgainRequested(var account)
+    signal removeRequested(var account)
 
     color: theme.sidebar
+
+    function accountFor(id) {
+        var rows = model ? model.accounts : []
+        for (var i = 0; i < rows.length; i++)
+            if (rows[i].id === id)
+                return rows[i]
+        return null
+    }
 
     function iconFor(name) {
         switch (name) {
@@ -50,6 +63,8 @@ Rectangle {
                 readonly property bool firstAccount: isAccount && index > 0
                     && sidebar.model.items[index - 1].icon !== "account"
                 readonly property bool selected: JSON.stringify(modelData.mailbox) === sidebar.currentMailbox
+                readonly property var account: isAccount ? sidebar.accountFor(modelData.mailbox.account) : null
+                readonly property string status: account ? account.status : ""
                 Layout.fillWidth: true
                 spacing: 0
 
@@ -68,12 +83,32 @@ Rectangle {
                 ItemDelegate {
                     id: button
                     Layout.fillWidth: true
-                    implicitHeight: 34
+                    implicitHeight: entry.status !== "" ? 46 : 34
                     focusPolicy: Qt.StrongFocus
                     Accessible.name: entry.modelData.unread_count > 0
                         ? qsTr("%1, %2 unread").arg(entry.modelData.label).arg(entry.modelData.unread_count)
                         : entry.modelData.label
                     onClicked: sidebar.mailboxSelected(JSON.stringify(entry.modelData.mailbox))
+
+                    TapHandler {
+                        enabled: entry.account !== null && !sidebar.demo
+                        acceptedButtons: Qt.RightButton
+                        onTapped: accountMenu.popup()
+                    }
+
+                    Menu {
+                        id: accountMenu
+                        MenuItem { text: qsTr("Check for new mail"); onTriggered: sidebar.syncRequested() }
+                        MenuItem {
+                            text: qsTr("Sign in again")
+                            onTriggered: sidebar.signInAgainRequested(entry.account)
+                        }
+                        MenuSeparator {}
+                        MenuItem {
+                            text: qsTr("Remove from MailHerd…")
+                            onTriggered: sidebar.removeRequested(entry.account)
+                        }
+                    }
 
                     background: Rectangle {
                         radius: 8
@@ -102,13 +137,33 @@ Rectangle {
                                 font.pointSize: sidebar.theme.base
                             }
                         }
-                        Text {
-                            text: entry.modelData.label
-                            color: sidebar.theme.text
-                            font.pointSize: entry.isAccount ? sidebar.theme.small : sidebar.theme.base
-                            font.bold: entry.selected
-                            elide: Text.ElideRight
+                        ColumnLayout {
+                            spacing: 1
                             Layout.fillWidth: true
+                            Text {
+                                text: entry.modelData.label
+                                color: sidebar.theme.text
+                                font.pointSize: entry.isAccount ? sidebar.theme.small : sidebar.theme.base
+                                font.bold: entry.selected
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+                            Text {
+                                visible: entry.status !== ""
+                                text: entry.status
+                                color: entry.account && entry.account.needs_sign_in
+                                    ? sidebar.theme.danger : sidebar.theme.faint
+                                font.pointSize: sidebar.theme.tiny
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+                        }
+                        Button {
+                            visible: entry.account !== null && entry.account.needs_sign_in
+                            text: qsTr("Sign in")
+                            font.pointSize: sidebar.theme.tiny
+                            implicitHeight: 24
+                            onClicked: sidebar.signInAgainRequested(entry.account)
                         }
                         Rectangle {
                             visible: entry.modelData.unread_count > 0
@@ -143,9 +198,30 @@ Rectangle {
                 anchors.fill: parent
                 anchors.margins: 8
                 wrapMode: Text.WordWrap
-                text: qsTr("Demo mode: sample conversations, nothing is sent. Account sign-in comes next.")
+                text: qsTr("Demo mode: sample conversations, nothing is sent.")
                 color: sidebar.theme.subtext
                 font.pointSize: sidebar.theme.tiny
+            }
+        }
+
+        ItemDelegate {
+            id: addButton
+            Layout.fillWidth: true
+            implicitHeight: 34
+            text: sidebar.demo ? qsTr("Add your accounts") : qsTr("+  Add account")
+            onClicked: sidebar.demo ? sidebar.leaveDemoRequested() : sidebar.addAccountRequested()
+            contentItem: Text {
+                text: addButton.text
+                color: sidebar.theme.accent
+                font.pointSize: sidebar.theme.small
+                verticalAlignment: Text.AlignVCenter
+                leftPadding: 8
+            }
+            background: Rectangle {
+                radius: 8
+                color: addButton.hovered ? sidebar.theme.hover : "transparent"
+                border.width: addButton.visualFocus ? 2 : 0
+                border.color: sidebar.theme.accent
             }
         }
     }
