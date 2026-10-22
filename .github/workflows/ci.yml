@@ -24,7 +24,7 @@ jobs:
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            build-essential ca-certificates curl git pkg-config dovecot-imapd \
+            build-essential ca-certificates curl git pkg-config libssl-dev dovecot-imapd \
             gnome-keyring dbus
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
