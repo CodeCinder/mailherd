@@ -144,7 +144,9 @@ The Rust core (`mailherd-core`) is a library that every app embeds. UIs call it 
 | `mh-chat` | Quote and signature stripping, bubble models | |
 | `mh-classify` | Smart categories and app-side rules | |
 | `mh-crypto` | OpenPGP and Autocrypt, later S/MIME | sequoia-openpgp |
-| `mh-app` | App state, view models, action dispatch; the API exposed to UIs | uniffi |
+| `mh-app` | App state, view models, action dispatch | |
+| `mh-ui` | The controller every app drives: window state, startup, sign-in and Start fresh; view models as JSON | |
+| `mh-ffi` | `mh-ui` for Swift (and later Kotlin) | uniffi |
 
 **Data model (main tables).** `accounts`, `identities`, `folders` (also used for labels), `messages` (with RFC Message-ID, provider IDs, flags and keywords), `message_folders` (many-to-many, which is how Gmail labels work), `threads`, `thread_messages`, `people`, `person_addresses`, `attachments`, `app_state` (pinned, done, snoozed and reminder records mirrored to the mailbox), `outbox` (queued actions and sends), `rules`, `signatures`, `snippets`.
 
@@ -279,7 +281,7 @@ mailherd/
   core/            Rust workspace (mh-* crates)
   relay/           Rust home backend + Dockerfile
   apps/linux/      Qt 6 / QML on the core via cxx-qt (built with Cargo)
-  apps/apple/      SwiftUI (macOS + iOS, Xcode project)
+  apps/apple/      SwiftUI (macOS now, iOS later; XcodeGen project.yml, build.sh)
   apps/windows/    WinUI 3 / C# (MSBuild)
   apps/android/    Kotlin / Compose (Gradle)
   testdata/        MIME corpus, quote-stripping samples
@@ -318,7 +320,7 @@ v0.1 is a Linux client you can use every day. Each later phase starts only when 
    *Gate: relay stable, scheduled sends reliable.*
 3. **v0.3 · Power features** — OpenPGP with Autocrypt, sending aliases, large-file links, Files view, remappable shortcuts.
    *Gate: core feature-complete for desktop.*
-4. **macOS · SwiftUI** — feature parity with Linux on the same core; signed and notarised .dmg with auto-update.
+4. **macOS · SwiftUI** — feature parity with Linux on the same core; signed and notarised .dmg with auto-update. Started 23 Oct 2026: one universal app for Intel and Apple Silicon, macOS 13 or newer, ad-hoc signed until the Apple Developer account is set up. Mac shortcuts use ⌘ (⌘E Done, ⌘R Reply, ⇧⌘N check mail) and Return sends.
    *Gate: parity across two desktops.*
 5. **Windows, then iOS and Android** — WinUI 3 app; iOS and Android with relay push, swipes, widgets, share sheet, rich notifications, Apple Watch and Wear OS, S/MIME.
    *Gate: decide on a commercial release.*
