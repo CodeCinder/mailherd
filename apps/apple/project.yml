@@ -1,0 +1,53 @@
+# XcodeGen spec for the Apple apps. `xcodegen generate` (run by build.sh)
+# turns this into MailHerd.xcodeproj; the generated project isn't committed.
+name: MailHerd
+options:
+  bundleIdPrefix: com.codecinder
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+targets:
+  MailHerd:
+    type: application
+    platform: macOS
+    sources:
+      - path: MailHerd
+      # The Swift side of the Rust core, written by uniffi-bindgen.
+      - path: Generated/mailherd_core.swift
+    info:
+      path: Generated/Info.plist
+      properties:
+        CFBundleDisplayName: MailHerd
+        CFBundleName: MailHerd
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.productivity
+        LSMinimumSystemVersion: "13.0"
+        NSHumanReadableCopyright: "© 2026 Michael Guglielmo. All rights reserved."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.codecinder.mailherd
+        PRODUCT_NAME: MailHerd
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # One app for Intel and Apple Silicon Macs.
+        ARCHS: "x86_64 arm64"
+        ONLY_ACTIVE_ARCH: NO
+        # The C header and module map for the Rust library.
+        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/Generated/include
+        LIBRARY_SEARCH_PATHS: $(PROJECT_DIR)/Generated
+        OTHER_LDFLAGS: >-
+          -lmailherd_core
+          -framework Security
+          -framework SystemConfiguration
+          -framework CoreFoundation
+        # Signed for real once the Apple Developer account is set up; until
+        # then an ad-hoc signature, which Apple Silicon requires.
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+        ENABLE_HARDENED_RUNTIME: NO

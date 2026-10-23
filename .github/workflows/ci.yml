@@ -103,3 +103,36 @@ jobs:
         with:
           name: screenshots
           path: dist/screenshots/
+
+  macos:
+    name: Mac app (.dmg for Intel and Apple Silicon)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin, aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Build
+        # The app registrations are baked in, as for Linux.
+        env:
+          MH_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          MH_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          MH_MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
+          MH_MS_TENANT_ID: ${{ secrets.MS_TENANT_ID }}
+        run: apps/apple/build.sh "${{ github.run_number }}"
+      - name: Screenshots
+        run: apps/apple/screenshots.sh dist/MailHerd.app dist/mac-screenshots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mailherd-mac
+          path: dist/*.dmg
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-screenshots
+          path: dist/mac-screenshots/

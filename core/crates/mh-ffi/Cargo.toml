@@ -1,0 +1,30 @@
+[package]
+name = "mh-ffi"
+description = "MailHerd's core for Swift (and later Kotlin), through UniFFI"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "mailherd_core"
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["bindgen"]
+
+[features]
+# Builds the uniffi-bindgen tool that writes the Swift bindings.
+bindgen = ["uniffi/cli"]
+
+[dependencies]
+mh-ui.workspace = true
+uniffi = "0.32"
+
+# Not the workspace lints: UniFFI's generated glue needs `unsafe`, which the
+# workspace forbids. Nothing in this crate is hand-written unsafe code.
+[lints.clippy]
+unwrap_used = "warn"
