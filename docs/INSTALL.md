@@ -58,3 +58,36 @@ first (right-click each account, then **Remove from MailHerd**).
 
 Say what you did, what you expected and what happened. A screenshot helps. If the app won't
 start, run `mailherd` in a terminal and copy what it prints.
+
+# Installing a test build on a Mac
+
+MailHerd for Mac runs on Intel and Apple Silicon Macs with macOS 13 (Ventura) or newer.
+
+## Download and install
+
+1. Open https://github.com/CodeCinder/mailherd/actions, click the newest run with a green
+   tick, and download **mailherd-mac** under **Artifacts** (**mac-screenshots** shows the build).
+2. Double-click the downloaded `.zip`, then the `MailHerd-….dmg` inside it.
+3. Drag **MailHerd** onto **Applications**.
+
+## The first time you open it
+
+Until MailHerd is signed with an Apple Developer account, macOS doesn't know who made it and
+blocks it the first time:
+
+1. Open MailHerd from Applications. macOS says it can't verify the app; click **Done** (or **OK**).
+2. Open **System Settings → Privacy & Security**, scroll down to the message about MailHerd and
+   click **Open Anyway**, then confirm with your Mac password.
+
+After that it opens normally. On older macOS versions, right-click MailHerd and choose **Open**
+instead.
+
+Your sign-ins are kept in the macOS keychain. Each new test build may ask once for permission
+to use them: click **Always Allow**. Your mail is stored in
+`~/Library/Application Support/MailHerd`, encrypted.
+
+## Updating and removing
+
+To update, install a newer build the same way and replace the old one. To remove MailHerd,
+remove your accounts in the app first (right-click each account, then **Remove from
+MailHerd**), then drag MailHerd from Applications to the Bin.
