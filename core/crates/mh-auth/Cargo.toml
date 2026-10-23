@@ -17,6 +17,10 @@ thiserror.workspace = true
 ureq.workspace = true
 url.workspace = true
 
+# KDE Wallet's own D-Bus interface (see src/kwallet.rs).
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = "5"
+
 [features]
 # Fake HTTP servers for other crates' tests.
 testing = []

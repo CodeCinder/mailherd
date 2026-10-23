@@ -1,5 +1,6 @@
-//! Credentials kept in the OS keychain (Secret Service on Linux: GNOME Keyring
-//! or KWallet). Nothing secret is ever written to MailHerd's own files.
+//! Credentials kept in the OS keychain: KDE Wallet on KDE desktops, the
+//! Secret Service (GNOME Keyring) on other Linux desktops, the Keychain on
+//! macOS. Nothing secret is ever written to MailHerd's own files.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -61,6 +62,73 @@ impl SecretStore for KeyringStore {
             Err(e) => Err(keyring_error(e)),
         }
     }
+}
+
+/// Uses `primary`, but still finds entries an earlier version saved in
+/// `legacy`, copying each across the first time it is read.
+pub struct Migrating {
+    pub primary: Box<dyn SecretStore>,
+    pub legacy: Box<dyn SecretStore>,
+}
+
+impl SecretStore for Migrating {
+    fn get(&self, key: &str) -> Result<Option<String>, SecretError> {
+        if let Some(value) = self.primary.get(key)? {
+            return Ok(Some(value));
+        }
+        // The old store may be missing or locked; then there is nothing to bring over.
+        match self.legacy.get(key) {
+            Ok(Some(value)) if !value.is_empty() => {
+                self.primary.set(key, &value)?;
+                Ok(Some(value))
+            }
+            _ => Ok(None),
+        }
+    }
+
+    fn set(&self, key: &str, value: &str) -> Result<(), SecretError> {
+        self.primary.set(key, value)
+    }
+
+    fn delete(&self, key: &str) -> Result<(), SecretError> {
+        self.primary.delete(key)?;
+        // Or the next read would copy it back.
+        let _ = self.legacy.delete(key);
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn desktop_is_kde() -> bool {
+    std::env::var("XDG_CURRENT_DESKTOP")
+        .map(|d| d.split(':').any(|part| part.eq_ignore_ascii_case("KDE")))
+        .unwrap_or(false)
+        || std::env::var_os("KDE_FULL_SESSION").is_some()
+}
+
+/// The keychain for this computer. On KDE that is KDE Wallet through its own
+/// interface, picking up anything saved earlier through the Secret Service.
+/// `MAILHERD_KEYCHAIN=kwallet` or `=secret-service` chooses one, for testing.
+pub fn system_store() -> Arc<dyn SecretStore> {
+    #[cfg(target_os = "linux")]
+    {
+        let choice = std::env::var("MAILHERD_KEYCHAIN").unwrap_or_default();
+        let want_kwallet = match choice.as_str() {
+            "kwallet" => true,
+            "secret-service" => false,
+            _ => desktop_is_kde(),
+        };
+        if want_kwallet
+            && let Ok(kwallet) = crate::kwallet::KWalletStore::new()
+            && kwallet.is_enabled()
+        {
+            return Arc::new(Migrating {
+                primary: Box::new(kwallet),
+                legacy: Box::new(KeyringStore),
+            });
+        }
+    }
+    Arc::new(KeyringStore)
 }
 
 #[derive(Default)]
@@ -140,7 +208,7 @@ impl Vault {
     }
 
     pub fn keychain() -> Self {
-        Self::new(Arc::new(KeyringStore))
+        Self::new(system_store())
     }
 
     pub fn credential(&self, account_id: &str) -> Result<Credential, VaultError> {
@@ -276,6 +344,71 @@ mod tests {
         let k2 = v.new_database_key().expect("key");
         assert_ne!(k1, k2, "a new key replaces the old one");
         assert_eq!(v.saved_database_key(), Ok(Some(k2)));
+    }
+
+    #[test]
+    fn old_entries_are_found_and_copied_over() {
+        let old = Arc::new(MemoryStore::default());
+        old.set("account:a", "secret").expect("set");
+        old.set("account:b", "").expect("set");
+        let new = Arc::new(MemoryStore::default());
+        let store = Migrating {
+            primary: Box::new(Shared(Arc::clone(&new))),
+            legacy: Box::new(Shared(Arc::clone(&old))),
+        };
+        assert_eq!(
+            store.get("account:a").expect("get").as_deref(),
+            Some("secret")
+        );
+        assert_eq!(
+            new.get("account:a").expect("get").as_deref(),
+            Some("secret"),
+            "copied"
+        );
+        assert_eq!(
+            store.get("account:b").expect("get"),
+            None,
+            "empty entries aren't copied"
+        );
+        assert_eq!(store.get("missing").expect("get"), None);
+
+        store.delete("account:a").expect("delete");
+        assert_eq!(
+            store.get("account:a").expect("get"),
+            None,
+            "not brought back"
+        );
+        assert_eq!(old.get("account:a").expect("get"), None);
+    }
+
+    /// A store shared with the test, so it can look inside.
+    struct Shared(Arc<MemoryStore>);
+
+    impl SecretStore for Shared {
+        fn get(&self, key: &str) -> Result<Option<String>, SecretError> {
+            self.0.get(key)
+        }
+        fn set(&self, key: &str, value: &str) -> Result<(), SecretError> {
+            self.0.set(key, value)
+        }
+        fn delete(&self, key: &str) -> Result<(), SecretError> {
+            self.0.delete(key)
+        }
+    }
+
+    /// Needs KDE Wallet running with an open wallet; see `kwallet-check.sh`.
+    #[cfg(target_os = "linux")]
+    #[test]
+    #[ignore = "needs KDE Wallet"]
+    fn real_kwallet_round_trip() {
+        let store = crate::kwallet::KWalletStore::new().expect("session bus");
+        assert!(store.is_enabled());
+        let key = "test:round-trip";
+        store.set(key, "hello").expect("set");
+        assert_eq!(store.get(key).expect("get").as_deref(), Some("hello"));
+        store.delete(key).expect("delete");
+        assert_eq!(store.get(key).expect("get"), None);
+        store.set("test:survives", "still here").expect("set");
     }
 
     /// Accepts writes, then forgets them, like a wallet that never saved.

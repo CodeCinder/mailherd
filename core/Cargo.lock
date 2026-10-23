@@ -1402,6 +1402,7 @@ dependencies = [
  "thiserror",
  "ureq",
  "url",
+ "zbus",
 ]
 
 [[package]]

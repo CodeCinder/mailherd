@@ -5,13 +5,17 @@
 //! - [`http`]: the blocking HTTP client the providers share.
 
 pub mod http;
+#[cfg(target_os = "linux")]
+pub mod kwallet;
 pub mod oauth;
 pub mod secrets;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
 pub use oauth::{AuthError, OAuthClient, Provider, SignIn, Tokens};
-pub use secrets::{Credential, KeyringStore, MemoryStore, SecretStore, Vault, VaultError};
+pub use secrets::{
+    Credential, KeyringStore, MemoryStore, Migrating, SecretStore, Vault, VaultError, system_store,
+};
 
 /// MailHerd's Google registration, baked in at build time from the
 /// `MH_GOOGLE_CLIENT_ID` and `MH_GOOGLE_CLIENT_SECRET` build secrets.
