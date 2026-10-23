@@ -44,6 +44,11 @@ struct MessageListView: View {
 private struct RowView: View {
     let row: ListRow
 
+    private var spoken: String {
+        let parts = [row.unread ? "Unread" : nil, row.title, row.detail, row.snippet]
+        return parts.compactMap { $0 }.joined(separator: ". ")
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Circle()
@@ -87,7 +92,6 @@ private struct RowView: View {
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(row.unread ? "Unread. \(row.title). \(row.detail ?? ""). \(row.snippet)"
-                                       : "\(row.title). \(row.detail ?? ""). \(row.snippet)")
+        .accessibilityLabel(spoken)
     }
 }

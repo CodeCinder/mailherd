@@ -40,8 +40,10 @@ struct ContentView: View {
             }
             Button("Cancel", role: .cancel) { removing = nil }
         } message: {
-            Text("MailHerd will stop checking this account and delete its mail from this Mac. "
-                + "Nothing changes in the account itself — your mail stays online.")
+            Text("""
+                MailHerd will stop checking this account and delete its mail from this Mac. \
+                Nothing changes in the account itself — your mail stays online.
+                """)
         }
     }
 }

@@ -14,6 +14,12 @@ struct BubbleView: View {
     private var ink: Color { onAccent ? .white : .primary }
     private var softInk: Color { onAccent ? Color(hex: "#dbe6fb") : .secondary }
 
+    private var status: String {
+        if bubble.sending { return "Sending…" }
+        if bubble.failed { return "Not sent, will retry" }
+        return bubble.timeLabel
+    }
+
     var body: some View {
         VStack(alignment: mine ? .trailing : .leading, spacing: 3) {
             if let subject = bubble.subjectChange {
@@ -54,7 +60,7 @@ struct BubbleView: View {
                 if !mine { Spacer(minLength: 60) }
             }
             HStack(spacing: 4) {
-                Text(bubble.sending ? "Sending…" : (bubble.failed ? "Not sent, will retry" : bubble.timeLabel))
+                Text(status)
                     .font(.caption2)
                     .foregroundStyle(bubble.failed ? Theme.danger : .secondary)
                 AccountDots(colors: bubble.accountColors)
