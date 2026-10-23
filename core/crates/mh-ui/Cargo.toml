@@ -1,0 +1,20 @@
+[package]
+name = "mh-ui"
+description = "The controller every MailHerd app drives: view models as JSON, actions, startup"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+mh-app.workspace = true
+mh-sync.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+mh-auth.workspace = true
+
+[lints]
+workspace = true

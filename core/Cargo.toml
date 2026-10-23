@@ -21,6 +21,8 @@ mh-provider-gmail = { path = "crates/mh-provider-gmail" }
 mh-provider-graph = { path = "crates/mh-provider-graph" }
 mh-provider-imap = { path = "crates/mh-provider-imap" }
 mh-sync = { path = "crates/mh-sync" }
+mh-ui = { path = "crates/mh-ui" }
+mh-ffi = { path = "crates/mh-ffi" }
 
 ammonia = "4.2"
 base64 = "0.23"

@@ -1335,6 +1335,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "mh-ui"
+version = "0.1.0"
+dependencies = [
+ "mh-app",
+ "mh-auth",
+ "mh-sync",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"

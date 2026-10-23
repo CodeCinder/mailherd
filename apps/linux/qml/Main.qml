@@ -31,8 +31,7 @@ ApplicationWindow {
     readonly property string startupError: { app.revision; return app.startupError() }
 
     // No accounts yet (or MailHerd couldn't start): show the welcome screen.
-    readonly property bool welcome: !app.demo
-        && (startupError !== "" || (sidebarModel !== null && sidebarModel.accounts.length === 0))
+    readonly property bool welcome: { app.revision; return app.showWelcome() }
 
     // When the first account is added from the welcome screen, carry on in the
     // Add account window so the user sees it worked and can add the others.

@@ -1395,10 +1395,7 @@ dependencies = [
  "cxx-qt",
  "cxx-qt-build",
  "cxx-qt-lib",
- "mh-app",
- "mh-sync",
- "serde",
- "serde_json",
+ "mh-ui",
 ]
 
 [[package]]
@@ -1570,6 +1567,16 @@ version = "0.1.0"
 dependencies = [
  "mh-model",
  "regex",
+]
+
+[[package]]
+name = "mh-ui"
+version = "0.1.0"
+dependencies = [
+ "mh-app",
+ "mh-sync",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
